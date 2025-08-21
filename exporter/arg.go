@@ -17,7 +17,7 @@ var (
 	serverTags        = kingpin.Flag("tag", "tags,comma separated list of server tag").Default("").Short('t').Envar("PG_EXPORTER_TAG").String()
 	disableCache      = kingpin.Flag("disable-cache", "force not using cache").Default("false").Short('C').Envar("PG_EXPORTER_DISABLE_CACHE").Bool()
 	disableIntro      = kingpin.Flag("disable-intro", "disable collector level introspection metrics").Short('m').Default("false").Envar("PG_EXPORTER_DISABLE_INTRO").Bool()
-	autoDiscovery     = kingpin.Flag("auto-discovery", "automatically scrape all database for given server").Short('a').Default("false").Envar("PG_EXPORTER_AUTO_DISCOVERY").Bool()
+	autoDiscovery     = kingpin.Flag("auto-discovery", "automatically scrape all database for given server").Short('a').Default("true").Envar("PG_EXPORTER_AUTO_DISCOVERY").Bool()
 	excludeDatabase   = kingpin.Flag("exclude-database", "excluded databases when enabling auto-discovery").Short('x').Default("template0,template1,postgres").Envar("PG_EXPORTER_EXCLUDE_DATABASE").String()
 	includeDatabase   = kingpin.Flag("include-database", "included databases when enabling auto-discovery").Short('i').Default("").Envar("PG_EXPORTER_INCLUDE_DATABASE").String()
 	exporterNamespace = kingpin.Flag("namespace", "prefix of built-in metrics, (pg|pgbouncer) by default").Short('n').Default("").Envar("PG_EXPORTER_NAMESPACE").String()
