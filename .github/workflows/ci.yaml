@@ -44,6 +44,11 @@ jobs:
       - name: Run tests
         run: go test -race -count=1 ./...
 
+      # downstream distros (e.g. Debian dh-golang) build in GOPATH mode where
+      # the pre-1.22 ServeMux is selected; keep the suite passing there too
+      - name: Run tests with go1.21 ServeMux
+        run: GODEBUG=httpmuxgo121=1 go test -count=1 ./...
+
       - name: Run go vet
         run: go vet ./...
 
