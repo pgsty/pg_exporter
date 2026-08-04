@@ -1598,7 +1598,7 @@ pg_wait:
 #==============================================================#
 pg_backend:
   name: pg_backend
-  desc: PostgreSQL backend client count group by wait event type since 10
+  desc: PostgreSQL backend client count group by backend type since 10
   query: SELECT backend_type AS "type", count(*) AS count FROM pg_stat_activity GROUP BY backend_type;
   ttl: 10
   min_version: 100000
