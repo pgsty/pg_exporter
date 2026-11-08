@@ -14,17 +14,17 @@ pg_io_18:
   tags: [ cluster ]
   metrics:
     - type:               { usage: LABEL                              ,description: "Type of backend" }
-    - object:             { usage: LABEL                              ,description: "Target object of an I/O operation, relation or temp" }
-    - context:            { usage: LABEL                              ,description: "The context of an I/O operation. normal,vacuum,bulkread,bulkwrite" }
-    - reads:              { usage: COUNTER ,default: 0                ,description: "Number of read operations, each of the size specified in op_bytes." }
+    - object:             { usage: LABEL                              ,description: "Target object of an I/O operation: relation, temp relation, or WAL" }
+    - context:            { usage: LABEL                              ,description: "The context of an I/O operation: normal, init, vacuum, bulkread, or bulkwrite" }
+    - reads:              { usage: COUNTER ,default: 0                ,description: "Number of read operations" }
     - read_bytes:         { usage: COUNTER ,default: 0                ,description: "Number of read bytes" }
     - read_time:          { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in read operations in seconds" }
-    - writes:             { usage: COUNTER ,default: 0                ,description: "Number of write operations, each of the size specified in op_bytes." }
+    - writes:             { usage: COUNTER ,default: 0                ,description: "Number of write operations" }
     - write_time:         { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in write operations in seconds" }
     - write_bytes:        { usage: COUNTER ,default: 0                ,description: "Number of write bytes" }
-    - writebacks:         { usage: COUNTER ,default: 0                ,description: "Number of units of size op_bytes which the process requested the kernel write out to permanent storage." }
+    - writebacks:         { usage: COUNTER ,default: 0                ,description: "Number of units of size BLCKSZ (typically 8kB) which the process requested the kernel write out to permanent storage" }
     - writeback_time:     { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in writeback operations in seconds" }
-    - extends:            { usage: COUNTER ,default: 0                ,description: "Number of relation extend operations, each of the size specified in op_bytes." }
+    - extends:            { usage: COUNTER ,default: 0                ,description: "Number of relation extend operations" }
     - extend_bytes:       { usage: COUNTER ,default: 0                ,description: "Number of extend bytes" }
     - extend_time:        { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in extend operations in seconds" }
     - hits:               { usage: COUNTER ,default: 0                ,description: "The number of times a desired block was found in a shared buffer." }

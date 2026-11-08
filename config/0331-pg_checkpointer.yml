@@ -9,11 +9,11 @@ pg_checkpointer_18:
   min_version: 180000
   tags: [ cluster ]
   metrics:
-    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints that have been performed" }
-    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints that have been performed" }
+    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints due to timeout, including completed and skipped checkpoints" }
+    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints, including completed and skipped checkpoints" }
     - num_done:              { usage: COUNTER ,rename: done  ,description: "Number of checkpoints that have been performed" }
-    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it" }
-    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints" }
+    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it, including completed and skipped restartpoints" }
+    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints, including completed and skipped restartpoints" }
     - restartpoints_done:    { usage: COUNTER                ,description: "Number of restartpoints that have been performed" }
     - write_time:            { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in seconds" }
     - sync_time:             { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in seconds" }
@@ -30,7 +30,7 @@ pg_checkpointer_17:
   max_version: 180000
   tags: [ cluster ]
   metrics:
-    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints that have been performed" }
+    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints due to timeout, including completed and skipped checkpoints" }
     - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints that have been performed" }
     - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it" }
     - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints" }

@@ -9,10 +9,10 @@ pg_clustering:
   min_version: 120000
   tags: [ cluster, primary ]
   metrics:
-    - datname:     { usage: LABEL ,description: "Name of database been clustering" }
-    - pid:         { usage: LABEL ,description: "Process id of indexing table" }
-    - relname:     { usage: LABEL ,description: "Relation name of indexed table" }
-    - tup_scan:    { usage: GAUGE ,description: "How much tuple been scanned" }
-    - progress:    { usage: GAUGE ,description: "Progress of heap been processed" }
+    - datname:     { usage: LABEL ,description: "Name of database containing the table" }
+    - pid:         { usage: LABEL ,description: "Process ID of backend" }
+    - relname:     { usage: LABEL ,description: "Name of relation being clustered or vacuumed" }
+    - tup_scan:    { usage: GAUGE ,description: "Number of heap tuples scanned" }
+    - progress:    { usage: GAUGE ,description: "Progress ratio of heap blocks scanned" }
 
 

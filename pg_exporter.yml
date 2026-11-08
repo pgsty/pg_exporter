@@ -1133,17 +1133,17 @@ pg_io_18:
   tags: [ cluster ]
   metrics:
     - type:               { usage: LABEL                              ,description: "Type of backend" }
-    - object:             { usage: LABEL                              ,description: "Target object of an I/O operation, relation or temp" }
-    - context:            { usage: LABEL                              ,description: "The context of an I/O operation. normal,vacuum,bulkread,bulkwrite" }
-    - reads:              { usage: COUNTER ,default: 0                ,description: "Number of read operations, each of the size specified in op_bytes." }
+    - object:             { usage: LABEL                              ,description: "Target object of an I/O operation: relation, temp relation, or WAL" }
+    - context:            { usage: LABEL                              ,description: "The context of an I/O operation: normal, init, vacuum, bulkread, or bulkwrite" }
+    - reads:              { usage: COUNTER ,default: 0                ,description: "Number of read operations" }
     - read_bytes:         { usage: COUNTER ,default: 0                ,description: "Number of read bytes" }
     - read_time:          { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in read operations in seconds" }
-    - writes:             { usage: COUNTER ,default: 0                ,description: "Number of write operations, each of the size specified in op_bytes." }
+    - writes:             { usage: COUNTER ,default: 0                ,description: "Number of write operations" }
     - write_time:         { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in write operations in seconds" }
     - write_bytes:        { usage: COUNTER ,default: 0                ,description: "Number of write bytes" }
-    - writebacks:         { usage: COUNTER ,default: 0                ,description: "Number of units of size op_bytes which the process requested the kernel write out to permanent storage." }
+    - writebacks:         { usage: COUNTER ,default: 0                ,description: "Number of units of size BLCKSZ (typically 8kB) which the process requested the kernel write out to permanent storage" }
     - writeback_time:     { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in writeback operations in seconds" }
-    - extends:            { usage: COUNTER ,default: 0                ,description: "Number of relation extend operations, each of the size specified in op_bytes." }
+    - extends:            { usage: COUNTER ,default: 0                ,description: "Number of relation extend operations" }
     - extend_bytes:       { usage: COUNTER ,default: 0                ,description: "Number of extend bytes" }
     - extend_time:        { usage: COUNTER ,default: 0  ,scale: 1e-3  ,description: "Time spent in extend operations in seconds" }
     - hits:               { usage: COUNTER ,default: 0                ,description: "The number of times a desired block was found in a shared buffer." }
@@ -1278,11 +1278,11 @@ pg_checkpointer_18:
   min_version: 180000
   tags: [ cluster ]
   metrics:
-    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints that have been performed" }
-    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints that have been performed" }
+    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints due to timeout, including completed and skipped checkpoints" }
+    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints, including completed and skipped checkpoints" }
     - num_done:              { usage: COUNTER ,rename: done  ,description: "Number of checkpoints that have been performed" }
-    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it" }
-    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints" }
+    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it, including completed and skipped restartpoints" }
+    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints, including completed and skipped restartpoints" }
     - restartpoints_done:    { usage: COUNTER                ,description: "Number of restartpoints that have been performed" }
     - write_time:            { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in seconds" }
     - sync_time:             { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in seconds" }
@@ -1299,7 +1299,7 @@ pg_checkpointer_17:
   max_version: 180000
   tags: [ cluster ]
   metrics:
-    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints that have been performed" }
+    - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints due to timeout, including completed and skipped checkpoints" }
     - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints that have been performed" }
     - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it" }
     - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints" }
@@ -1808,7 +1808,7 @@ pg_vacuuming_18:
     - progress:          { usage: GAUGE   ,description: "vacuum progress ratio (0-1) based on heap blocks scanned/vacuumed" }
     - indexes_total:     { usage: GAUGE   ,description: "total number of indexes that will be vacuumed or cleaned up" }
     - indexes_processed: { usage: GAUGE   ,description: "number of indexes that have been vacuumed or cleaned up" }
-    - dead_tuple_bytes:  { usage: GAUGE   ,description: "total size of dead tuples collected since the beginning of vacuum in bytes" }
+    - dead_tuple_bytes:  { usage: GAUGE   ,description: "Amount of dead tuple data collected since the last index vacuum cycle" }
     - delay_time:        { usage: COUNTER ,scale: 1e-3 ,description: "total time spent sleeping due to cost-based delay in seconds" }
 
 pg_vacuuming_17:
@@ -1832,7 +1832,7 @@ pg_vacuuming_17:
     - progress:          { usage: GAUGE ,description: "vacuum progress ratio (0-1) based on heap blocks scanned/vacuumed" }
     - indexes_total:     { usage: GAUGE ,description: "total number of indexes that will be vacuumed or cleaned up" }
     - indexes_processed: { usage: GAUGE ,description: "number of indexes that have been vacuumed or cleaned up" }
-    - dead_tuple_bytes:  { usage: GAUGE ,description: "total size of dead tuples collected since the beginning of vacuum in bytes" }
+    - dead_tuple_bytes:  { usage: GAUGE ,description: "Amount of dead tuple data collected since the last index vacuum cycle" }
 
 pg_vacuuming_12:
   name: pg_vacuuming
@@ -1892,11 +1892,11 @@ pg_clustering:
   min_version: 120000
   tags: [ cluster, primary ]
   metrics:
-    - datname:     { usage: LABEL ,description: "Name of database been clustering" }
-    - pid:         { usage: LABEL ,description: "Process id of indexing table" }
-    - relname:     { usage: LABEL ,description: "Relation name of indexed table" }
-    - tup_scan:    { usage: GAUGE ,description: "How much tuple been scanned" }
-    - progress:    { usage: GAUGE ,description: "Progress of heap been processed" }
+    - datname:     { usage: LABEL ,description: "Name of database containing the table" }
+    - pid:         { usage: LABEL ,description: "Process ID of backend" }
+    - relname:     { usage: LABEL ,description: "Name of relation being clustered or vacuumed" }
+    - tup_scan:    { usage: GAUGE ,description: "Number of heap tuples scanned" }
+    - progress:    { usage: GAUGE ,description: "Progress ratio of heap blocks scanned" }
 
 
 #==============================================================#
