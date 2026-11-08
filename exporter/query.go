@@ -8,7 +8,7 @@ import (
 	texttmpl "text/template"
 	"time"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 /* ================ Query ================ */
@@ -120,6 +120,7 @@ var htmlTemplate, _ = htmltmpl.New("Query").Parse(`
 func (q *Query) MarshalYAML() string {
 	v := make(map[string]Query, 1)
 	v[q.Branch] = *q
+	// The classic API keeps four-space indentation and disables line wrapping.
 	buf, err := yaml.Marshal(v)
 	if err != nil {
 		msg := fmt.Sprintf("fail to marshall query yaml: %s", err.Error())

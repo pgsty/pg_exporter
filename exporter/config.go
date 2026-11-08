@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // GetConfig will try load config from target path
@@ -36,6 +36,7 @@ func GetConfig() (res string) {
 // ParseConfig turn config content into Query struct
 func ParseConfig(content []byte) (queries map[string]*Query, err error) {
 	queries = make(map[string]*Query)
+	// Keep the classic API's empty-document and trailing-content handling.
 	if err = yaml.Unmarshal(content, &queries); err != nil {
 		return nil, fmt.Errorf("malformed config: %w", err)
 	}
