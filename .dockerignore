@@ -6,3 +6,4 @@
 !exporter/
 !exporter/**
 !pg_exporter.yml
+!LICENSE

@@ -5,7 +5,11 @@ on:
   pull_request:
     paths:
       - '.goreleaser.yml'
-      - 'package/nfpm-*-rpm.yaml'
+      - 'Dockerfile.goreleaser'
+      - 'LICENSE'
+      - 'pg_exporter.yml'
+      - 'package/**'
+      - '.github/scripts/**'
       - '.github/workflows/release.yaml'
       - '.github/workflows/test-release.yaml'
 
@@ -51,19 +55,34 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --snapshot --clean --skip=publish,docker
+          args: release --snapshot --clean --skip=publish
+
+      - name: Verify release Docker images
+        run: |
+          version=$(jq -r .version dist/metadata.json)
+          bash .github/scripts/test-image.sh \
+            "pgsty/pg_exporter:$version-amd64" \
+            "pgsty/pg_exporter:$version-arm64"
 
       - name: Verify artifacts
         run: |
           echo "Generated artifacts:"
           ls -lh dist/*.tar.gz || true
-          ls -lh dist/*.rpm
+          ls -lh dist/*.rpm dist/*.deb
           shopt -s nullglob
           rpms=(dist/*.rpm)
+          debs=(dist/*.deb)
           test "${#rpms[@]}" -gt 0
+          test "${#debs[@]}" -gt 0
           for rpm in "${rpms[@]}"; do
             [[ "$(basename "$rpm")" == pg-exporter-*.rpm ]] || {
               echo "::error file=.goreleaser.yml::unexpected RPM artifact name: $(basename "$rpm")"
+              exit 1
+            }
+          done
+          for deb in "${debs[@]}"; do
+            [[ "$(basename "$deb")" == pg-exporter_*.deb ]] || {
+              echo "::error file=.goreleaser.yml::unexpected DEB artifact name: $(basename "$deb")"
               exit 1
             }
           done
@@ -73,6 +92,9 @@ jobs:
               rpm -qp --obsoletes "$rpm" | grep -qx pg_exporter
             done
           '
+          docker run --rm \
+            -v "$PWD:/src:ro" -v "$PWD/dist:/dist:ro" -w /src \
+            debian:bookworm-slim bash .github/scripts/test-deb.sh /dist
           echo ""
           echo "Checksums:"
-          cat dist/checksums.txt || true
+          (cd dist && sha256sum --check checksums.txt)

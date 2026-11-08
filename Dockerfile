@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM golang:1.27.3-alpine AS builder-env
 
+RUN apk add --no-cache ca-certificates
+
 ARG GOPROXY=https://proxy.golang.org,direct
 ARG GOSUMDB=sum.golang.org
 ENV GOPROXY=${GOPROXY}
@@ -38,6 +40,8 @@ LABEL org.opencontainers.image.authors="Ruohang Feng <rh@vonng.com>, Craig Ringe
 
 WORKDIR /bin
 COPY --from=builder-env /pg_exporter /bin/pg_exporter
+COPY --from=builder-env /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY pg_exporter.yml /etc/pg_exporter.yml
+COPY LICENSE /LICENSE
 EXPOSE 9630/tcp
 ENTRYPOINT ["/bin/pg_exporter"]

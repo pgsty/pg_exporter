@@ -32,10 +32,12 @@ jobs:
       - name: Verify generated configs
         run: make conf conf9 && git diff --exit-code pg_exporter.yml legacy/pg_exporter.yml
 
-      - name: Verify standalone RPM package metadata
+      - name: Verify standalone package metadata
         run: |
-          for config in package/nfpm-amd64-rpm.yaml package/nfpm-arm64-rpm.yaml; do
+          for config in package/nfpm-*.yaml; do
             grep -qx 'name: "pg-exporter"' "$config"
+          done
+          for config in package/nfpm-*-rpm.yaml; do
             grep -qx 'provides:' "$config"
             grep -qx 'replaces:' "$config"
             test "$(grep -c '^  - pg_exporter$' "$config")" -eq 2
@@ -60,3 +62,8 @@ jobs:
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ./...
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ./...
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...
+
+      - name: Build and verify Docker image
+        run: |
+          docker build --tag pg_exporter:ci .
+          bash .github/scripts/test-image.sh pg_exporter:ci
