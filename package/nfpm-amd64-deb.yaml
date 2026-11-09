@@ -1,7 +1,7 @@
 name: "pg-exporter"
 arch: "amd64"
 platform: "linux"
-version: "v1.5.0"
+version: "v1.6.0"
 release: "1"
 version_schema: semver
 maintainer: Ruohang Feng <rh@vonng.com>

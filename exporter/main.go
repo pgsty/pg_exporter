@@ -239,7 +239,6 @@ func Run() {
 		os.Exit(0)
 	}
 
-	prometheus.MustRegister(PgExporter)
 	defer PgExporter.Close()
 
 	// reload conf when receiving configured reload signals (SIGHUP, and SIGUSR1 on non-Windows)
@@ -256,7 +255,9 @@ func Run() {
 
 	/* ================ REST API ================ */
 	mux := http.NewServeMux()
-	registerHTTPRoutes(mux, PgExporter, *metricPath, promhttp.Handler())
+	metrics := promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer,
+		newMetricsHandler(PgExporter, prometheus.DefaultGatherer))
+	registerHTTPRoutes(mux, PgExporter, *metricPath, metrics)
 
 	logInfof("pg_exporter for %s start, listen on %s%s", ShadowPGURL(*pgURL), listenAddr, *metricPath)
 
@@ -264,7 +265,7 @@ func Run() {
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      httpWriteTimeout,
 		IdleTimeout:       2 * time.Minute,
 	}
 	if err := web.ListenAndServe(srv, webConfig, Logger); err != nil {

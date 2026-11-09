@@ -1,11 +1,13 @@
 #==============================================================#
 # 0520 pg_indexing
 #==============================================================#
+# Keep cluster coverage; resolve names in the connected database and for system
+# catalogs (OID < 16384, identical in every database); other relations use OIDs.
 pg_indexing:
   name: pg_indexing
   desc: PostgreSQL index creating progress (v12+)
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       (CASE WHEN blocks_total > 0 THEN 1.0 * blocks_done / blocks_total ELSE NULL END) AS blocks,
       (CASE WHEN tuples_total > 0 THEN 1.0 * tuples_done / tuples_total ELSE NULL END) AS tuples,
       (CASE WHEN partitions_total > 0 THEN 1.0 * partitions_done / partitions_total ELSE NULL END) AS partitions,

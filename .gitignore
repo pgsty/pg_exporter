@@ -17,6 +17,9 @@ dist/
 .codex/
 .codex_tmp/
 pg_exporter.iml
+
+# Local agent instructions
+AGENTS.md
 CLAUDE.md
 
 .hugo_build.lock

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"maps"
@@ -32,15 +33,19 @@ type Server struct {
 	*sql.DB              // database instance (do not close this due to the stupid implementation in database/sql)
 	dsn     string       // data source name
 	lock    sync.RWMutex // server scrape lock
+	dbMu    sync.RWMutex // DB initialization only; never held during SQL
 	err     error        // last error
+	// interrupted reports that the last pass ended because the request was
+	// canceled or ran out of budget, which says nothing about the database.
+	interrupted bool
 
 	// notice handling (primarily for pgbouncer, where SHOW VERSION may return via NOTICE)
 	noticeMu   sync.Mutex
 	lastNotice string
 
 	// hooks
-	beforeScrape     func(s *Server) error        // hook: execute before scrape
-	onDatabaseChange func(change map[string]bool) // hook: invoke when database list is changed
+	beforeScrape     func(context.Context, *Server) error // hook: execute before scrape
+	onDatabaseChange func(change map[string]bool)         // hook: invoke when database list is changed
 
 	// postgres fact gather from server
 	UP       bool   // indicate whether target server is connectable
@@ -110,19 +115,20 @@ func (s *Server) Error() error {
 func (s *Server) Check() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	return s.beforeScrape(s)
+	return s.beforeScrape(context.Background(), s)
 }
 
 // ProbeHealth performs a lightweight probe for exporter health checks.
 // It returns whether the database is reachable, whether it's in recovery,
 // and whether PostgreSQL is still starting up (SQLSTATE 57P03).
 func (s *Server) ProbeHealth() (up, recovery, starting bool, err error) {
-	// Snapshot pointers/flags quickly under lock to avoid races with first-time DB init.
-	s.lock.RLock()
+	// DB initialization has its own short lock. A scrape must not delay probes.
+	// Mode and timeout are immutable after construction.
+	s.dbMu.RLock()
 	db := s.DB
+	s.dbMu.RUnlock()
 	pgbouncerMode := s.PgbouncerMode
 	timeout := s.GetConnectTimeout()
-	s.lock.RUnlock()
 
 	if db == nil {
 		return false, false, false, errors.New("database connection is not initialized")
@@ -163,23 +169,47 @@ func isPostgresStartupError(err error) bool {
 	return errors.As(err, &pgErr) && string(pgErr.Code) == pgSQLStateCannotConnectNow
 }
 
-// PgbouncerPrecheck checks pgbouncer connection before scrape
-func PgbouncerPrecheck(s *Server) (err error) {
-	if s.DB == nil { // if db is not initialized, create a new DB with a NOTICE handler
-		base, cerr := pq.NewConnector(s.dsn)
-		if cerr != nil {
-			s.UP = false
-			return cerr
-		}
-		connector := pq.ConnectorWithNoticeHandler(base, func(notice *pq.Error) {
+// initDB is called under the scrape lock. sql.OpenDB does not connect to the target.
+func (s *Server) initDB() error {
+	s.dbMu.Lock()
+	defer s.dbMu.Unlock()
+	if s.DB != nil {
+		return nil
+	}
+	base, err := pq.NewConnector(s.dsn)
+	if err != nil {
+		return err
+	}
+	var connector driver.Connector = base
+	s.MaxConn = 3
+	if s.Forked {
+		s.MaxConn = 1
+	} else if s.PgbouncerMode {
+		s.MaxConn = 2 // one collection and one independent health probe
+	}
+	if s.PgbouncerMode {
+		connector = pq.ConnectorWithNoticeHandler(base, func(notice *pq.Error) {
 			s.noticeMu.Lock()
 			s.lastNotice = notice.Message
 			s.noticeMu.Unlock()
 		})
-		s.DB = sql.OpenDB(connector)
-		s.DB.SetMaxIdleConns(1)
-		s.DB.SetMaxOpenConns(1)
-		s.DB.SetConnMaxLifetime(connMaxLifeTime)
+	}
+	s.DB = sql.OpenDB(connector)
+	s.DB.SetMaxIdleConns(s.MaxConn)
+	s.DB.SetMaxOpenConns(s.MaxConn)
+	s.DB.SetConnMaxLifetime(connMaxLifeTime)
+	return nil
+}
+
+// PgbouncerPrecheck checks pgbouncer connection before scrape.
+func PgbouncerPrecheck(s *Server) error {
+	return pgbouncerPrecheck(context.Background(), s)
+}
+
+func pgbouncerPrecheck(parent context.Context, s *Server) (err error) {
+	if err = s.initDB(); err != nil {
+		s.UP = false
+		return err
 	}
 
 	// Clear last notice before issuing SHOW VERSION so we can reliably parse it.
@@ -187,7 +217,7 @@ func PgbouncerPrecheck(s *Server) (err error) {
 	s.lastNotice = ""
 	s.noticeMu.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.GetConnectTimeout())
+	ctx, cancel := context.WithTimeout(parent, s.GetConnectTimeout())
 	defer cancel()
 
 	var versionStr string
@@ -258,28 +288,19 @@ func ParseSemver(semverStr string) int {
 
 // PostgresPrecheck checks postgres connection and gathering facts
 // if any important fact changed, it will trigger a plan before next scrape
-func PostgresPrecheck(s *Server) (err error) {
-	if s.DB == nil { // if db is not initialized, create a new DB
-		if s.DB, err = sql.Open("postgres", s.dsn); err != nil {
-			s.UP = false
-			return
-		}
-		if s.Forked {
-			s.MaxConn = 1
-			s.DB.SetMaxIdleConns(1)
-			s.DB.SetMaxOpenConns(1)
-			s.DB.SetConnMaxLifetime(connMaxLifeTime)
-		} else {
-			s.MaxConn = 3
-			s.DB.SetMaxIdleConns(3)
-			s.DB.SetMaxOpenConns(3)
-			s.DB.SetConnMaxLifetime(1 * time.Minute)
-		}
+func PostgresPrecheck(s *Server) error {
+	return postgresPrecheck(context.Background(), s)
+}
+
+func postgresPrecheck(parent context.Context, s *Server) (err error) {
+	if err = s.initDB(); err != nil {
+		s.UP = false
+		return err
 	}
 
 	// retrieve version info
 	var version int
-	ctx, cancel := context.WithTimeout(context.Background(), s.GetConnectTimeout())
+	ctx, cancel := context.WithTimeout(parent, s.GetConnectTimeout())
 	defer cancel()
 	if err = s.DB.QueryRowContext(ctx, `SHOW server_version_num;`).Scan(&version); err != nil {
 		s.UP = false
@@ -293,7 +314,7 @@ func PostgresPrecheck(s *Server) (err error) {
 	}
 	s.Version = version
 
-	ctxSet, cancelSet := context.WithTimeout(context.Background(), s.GetConnectTimeout())
+	ctxSet, cancelSet := context.WithTimeout(parent, s.GetConnectTimeout())
 	defer cancelSet()
 	if _, err = s.DB.ExecContext(ctxSet, `SET application_name = pg_exporter;`); err != nil {
 		s.UP = false
@@ -308,7 +329,7 @@ func PostgresPrecheck(s *Server) (err error) {
 	(SELECT pg_catalog.array_agg(d.datname)::text[] AS databases FROM pg_catalog.pg_database d WHERE d.datallowconn AND NOT d.datistemplate),
 	(SELECT pg_catalog.array_agg(n.nspname)::text[] AS namespaces FROM pg_catalog.pg_namespace n),
 	(SELECT pg_catalog.array_agg(e.extname)::text[] AS extensions FROM pg_catalog.pg_extension e);`
-	ctx2, cancel2 := context.WithTimeout(context.Background(), s.GetConnectTimeout())
+	ctx2, cancel2 := context.WithTimeout(parent, s.GetConnectTimeout())
 	defer cancel2()
 	if err = s.DB.QueryRowContext(ctx2, precheckSQL).Scan(&datname, &username, &recovery, pq.Array(&databases), pq.Array(&namespaces), pq.Array(&extensions)); err != nil {
 		s.UP = false
@@ -584,15 +605,24 @@ func (s *Server) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implement prometheus.Collector interface
 func (s *Server) Collect(ch chan<- prometheus.Metric) {
+	s.collect(context.Background(), ch)
+}
+
+func (s *Server) collect(ctx context.Context, ch chan<- prometheus.Metric) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.scrapeBegin = time.Now() // This ts is used for cache expiration check
+	wasUP := s.UP
 
 	// check server conn, gathering fact
-	if s.err = s.beforeScrape(s); s.err != nil {
+	if s.err = ctx.Err(); s.err != nil {
+		goto final
+	}
+	if s.err = s.beforeScrape(ctx, s); s.err != nil {
 		logDebugf("fail establishing connection to %s: %s", s.Name(), s.err.Error())
 		goto final
 	}
+	wasUP = true // the database answered this pass
 
 	// fact change (including first time) will incur a plan procedure
 	if !s.Planned {
@@ -600,19 +630,28 @@ func (s *Server) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	// First pass: execute all queries with Fatal flag
-	if err := s.collectFatalQueries(ch); err != nil {
+	if err := s.collectFatalQueries(ctx, ch); err != nil {
 		s.err = err
 		goto final
 	}
 
 	// Second pass: execute remaining non-Fatal queries
-	s.collectNonFatalQueries(ch)
+	s.collectNonFatalQueries(ctx, ch)
+	if ctx.Err() != nil {
+		s.err = ctx.Err()
+	}
 
 final:
 	s.scrapeDone = time.Now() // This ts is used for cache expiration check
 	s.totalTime += s.scrapeDone.Sub(s.scrapeBegin).Seconds()
 	s.totalCount++
-	if s.err != nil {
+	s.interrupted = s.err != nil && ctx.Err() != nil
+	if s.interrupted {
+		// The client left or the request budget expired. Keep the last database
+		// observation and leave connection/fatal error counters unchanged.
+		s.UP = wasUP
+		logInfof("scrape of server [%s] interrupted: %s", s.Name(), s.err.Error())
+	} else if s.err != nil {
 		s.UP = false
 		s.errorCount++
 		logErrorf("fail scraping server [%s]: %s", s.Name(), s.err.Error())
@@ -624,13 +663,16 @@ final:
 }
 
 // collectFatalQueries executes all queries with Fatal flag and returns on first error
-func (s *Server) collectFatalQueries(ch chan<- prometheus.Metric) error {
+func (s *Server) collectFatalQueries(ctx context.Context, ch chan<- prometheus.Metric) error {
 	for _, query := range s.Collectors {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if !query.Fatal {
 			continue
 		}
 
-		if err := s.executeQuery(query, ch); err != nil {
+		if err := s.executeQuery(ctx, query, ch); err != nil {
 			logErrorf("query [%s] error: %s", query.Name, err)
 			return err
 		}
@@ -639,21 +681,24 @@ func (s *Server) collectFatalQueries(ch chan<- prometheus.Metric) error {
 }
 
 // collectNonFatalQueries executes all non-Fatal queries and logs errors without stopping
-func (s *Server) collectNonFatalQueries(ch chan<- prometheus.Metric) {
+func (s *Server) collectNonFatalQueries(ctx context.Context, ch chan<- prometheus.Metric) {
 	for _, query := range s.Collectors {
+		if ctx.Err() != nil {
+			return
+		}
 		if query.Fatal {
 			continue
 		}
 
-		if err := s.executeQuery(query, ch); err != nil {
+		if err := s.executeQuery(ctx, query, ch); err != nil {
 			logWarnf("query [%s] error skipped: %s", query.Name, err)
 		}
 	}
 }
 
 // executeQuery runs a single query and updates its metrics
-func (s *Server) executeQuery(query *Collector, ch chan<- prometheus.Metric) error {
-	query.Collect(ch)
+func (s *Server) executeQuery(ctx context.Context, query *Collector, ch chan<- prometheus.Metric) error {
+	query.collect(ctx, ch)
 	s.queryCacheTTL[query.Name] = query.cacheTTL()
 	s.queryScrapeTotalCount[query.Name]++
 	s.queryScrapeMetricCount[query.Name] = float64(query.ResultSize())
@@ -713,11 +758,11 @@ func NewServer(dsn string, opts ...ServerOpt) *Server {
 	s.Database = ParseDatname(dsn)
 	if s.Database != "pgbouncer" {
 		s.PgbouncerMode = false
-		s.beforeScrape = PostgresPrecheck
+		s.beforeScrape = postgresPrecheck
 	} else {
 		logInfof("datname pgbouncer detected, enabling pgbouncer mode")
 		s.PgbouncerMode = true
-		s.beforeScrape = PgbouncerPrecheck
+		s.beforeScrape = pgbouncerPrecheck
 	}
 	s.MaxConn = 1
 	s.Databases = make(map[string]bool, 1)

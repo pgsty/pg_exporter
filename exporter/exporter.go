@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html"
@@ -43,7 +44,7 @@ type Exporter struct {
 	connectTimeout  int               // timeout in ms when perform server pre-check
 
 	// internal status
-	lock    sync.RWMutex       // export lock
+	lock    collectionLock     // serializes collection, reload, and close
 	server  *Server            // primary server
 	sLock   sync.RWMutex       // server map lock
 	servers map[string]*Server // auto discovered peripheral servers
@@ -81,7 +82,8 @@ type Exporter struct {
 	queryScrapeHitCountDesc           *prometheus.Desc // {datname,query} query level: cache hit count
 
 	// lock-free health snapshot for high-frequency probes
-	healthStatus atomic.Int32
+	healthStatus    atomic.Int32
+	healthProbeLock sync.Mutex // serialize explicit and background probes
 
 	healthLoopLock sync.Mutex
 	healthLoopStop chan struct{}
@@ -149,6 +151,8 @@ func (e *Exporter) updateHealthStateFromServer() {
 }
 
 func (e *Exporter) probeAndUpdateHealthState() error {
+	e.healthProbeLock.Lock()
+	defer e.healthProbeLock.Unlock()
 	if e.server == nil {
 		e.healthStatus.Store(healthStatusUnknown)
 		return errors.New("primary server is nil")
@@ -227,6 +231,14 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
+	e.collect(context.Background(), ch)
+}
+
+// collect requires e.lock. HTTP callers supply their request context.
+func (e *Exporter) collect(ctx context.Context, ch chan<- prometheus.Metric) {
+	if ctx.Err() != nil {
+		return
+	}
 	if !e.disableIntro {
 		e.scrapeTotalCount.Add(1)
 	}
@@ -234,11 +246,14 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.scrapeBegin = time.Now()
 	// scrape primary server
 	s := e.server
-	s.Collect(ch)
+	s.collect(ctx, ch)
 
 	// scrape extra servers if exists
 	for _, srv := range e.IterateServer() {
-		srv.Collect(ch)
+		if ctx.Err() != nil {
+			break
+		}
+		srv.collect(ctx, ch)
 	}
 	e.scrapeDone = time.Now()
 
@@ -250,9 +265,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	version := s.Version
 	up := s.UP
 	recovery := s.Recovery
+	interrupted := s.interrupted
 	s.lock.RUnlock()
 
-	e.updateHealthState(up, recovery)
+	// Only health probes publish HTTP health after construction. A scrape may
+	// contain an older main-target observation while child databases are collected.
 	if !e.disableIntro {
 		e.version.Set(float64(version))
 		if up {
@@ -264,7 +281,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			}
 		} else {
 			e.up.Set(0)
-			e.scrapeErrorCount.Add(1)
+			if !interrupted {
+				e.scrapeErrorCount.Add(1)
+			}
 		}
 		e.exporterUptime.Set(e.server.Uptime())
 		e.collectServerMetrics(ch)
@@ -350,6 +369,8 @@ func (e *Exporter) Check() {
 // Close will close all underlying servers
 func (e *Exporter) Close() {
 	e.stopHealthLoop()
+	e.lock.Lock()
+	defer e.lock.Unlock()
 
 	if e.server != nil {
 		if e.server.DB != nil {

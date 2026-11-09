@@ -12,7 +12,7 @@ import (
 // Version is the fallback for plain go builds; make build overrides it via
 // ldflags with the Makefile VERSION. Keep both v-prefixed and in sync so every
 // build path reports the same string.
-var Version = "v1.5.0"
+var Version = "v1.6.0"
 
 // Build information. Populated at build-time.
 var (

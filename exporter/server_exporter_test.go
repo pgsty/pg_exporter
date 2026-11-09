@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -163,7 +164,7 @@ func TestPlanResetAndCollectCached(t *testing.T) {
 	c.lastScrape = time.Now()
 	c.err = nil
 
-	s.beforeScrape = func(s *Server) error {
+	s.beforeScrape = func(_ context.Context, s *Server) error {
 		s.UP = true
 		return nil
 	}

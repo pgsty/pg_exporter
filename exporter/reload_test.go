@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +16,7 @@ func TestReloadUpdatesQueriesInPlace(t *testing.T) {
 
 	// Seed exporter with an initial query set and a planned server.
 	s := NewServer("postgresql://u:p@localhost:5432/postgres")
-	s.beforeScrape = func(s *Server) error { return nil }
+	s.beforeScrape = func(_ context.Context, s *Server) error { return nil }
 	s.Planned = true
 	s.queries = map[string]*Query{"old": makeGaugeQuery("old", 1)}
 	s.Collectors = []*Collector{NewCollector(makeGaugeQuery("old", 1), s)}

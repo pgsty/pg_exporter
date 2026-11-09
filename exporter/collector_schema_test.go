@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"context"
 	"database/sql/driver"
 	"strings"
 	"testing"
@@ -103,7 +104,7 @@ func TestServerNonFatalMissingLabelDoesNotStopOtherCollectors(t *testing.T) {
 	server.ResetStats()
 
 	ch := make(chan prometheus.Metric, 2)
-	server.collectNonFatalQueries(ch)
+	server.collectNonFatalQueries(context.Background(), ch)
 
 	if got := len(ch); got != 1 {
 		t.Fatalf("non-fatal collectors emitted %d metrics, want only the good collector", got)

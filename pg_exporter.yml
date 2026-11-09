@@ -186,6 +186,15 @@
 # avalanche. You can explicitly overwrite that option. but beware: in some extreme cases, if all your
 # timeouts sum up greater your scrape/cache interval (usually 15s), the queries may still be jammed.
 # or, you can just disable potential slow queries.
+# HTTP waiting and collection share the existing 30-second write-timeout budget,
+# shortened by a valid positive X-Prometheus-Scrape-Timeout-Seconds header.
+# Expired budgets stop collection between collectors. A collector already running
+# with a timeout finishes its predicates and main query under that one deadline,
+# so a departing client does not discard its result; only a negative-timeout
+# query is canceled with the request and then keeps the normal failure TTL. An
+# interrupted pass is not counted as a connection or fatal error. At most two
+# metrics requests are admitted; collection is serial and waiting is cancelable.
+# Further requests receive HTTP 503. Driver/network stalls can outlive deadlines.
 
 #==============================================================#
 # 7. Version Compatibility
@@ -1788,11 +1797,13 @@ pg_query_10:
 #==============================================================#
 # 0510 pg_vacuuming
 #==============================================================#
+# Keep cluster coverage; resolve names in the connected database and for system
+# catalogs (OID < 16384, identical in every database); other relations use OIDs.
 pg_vacuuming_18:
   name: pg_vacuuming
   desc: PostgreSQL vacuum progress 18+
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       CASE phase WHEN 'scanning heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0.0 END)
         WHEN 'vacuuming heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_vacuumed / heap_blks_total ELSE 0 END) ELSE NULL END AS progress,
       indexes_total, indexes_processed, dead_tuple_bytes, delay_time
@@ -1815,7 +1826,7 @@ pg_vacuuming_17:
   name: pg_vacuuming
   desc: PostgreSQL vacuum progress 17 (with index progress tracking)
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       CASE phase WHEN 'scanning heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0.0 END)
         WHEN 'vacuuming heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_vacuumed / heap_blks_total ELSE 0 END) ELSE NULL END AS progress,
       indexes_total, indexes_processed, dead_tuple_bytes
@@ -1838,7 +1849,7 @@ pg_vacuuming_12:
   name: pg_vacuuming
   desc: PostgreSQL vacuum progress 12-16
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       CASE phase WHEN 'scanning heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0.0 END)
         WHEN 'vacuuming heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_vacuumed / heap_blks_total ELSE 0 END) ELSE NULL END AS progress
     FROM pg_stat_progress_vacuum;
@@ -1857,11 +1868,13 @@ pg_vacuuming_12:
 #==============================================================#
 # 0520 pg_indexing
 #==============================================================#
+# Keep cluster coverage; resolve names in the connected database and for system
+# catalogs (OID < 16384, identical in every database); other relations use OIDs.
 pg_indexing:
   name: pg_indexing
   desc: PostgreSQL index creating progress (v12+)
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       (CASE WHEN blocks_total > 0 THEN 1.0 * blocks_done / blocks_total ELSE NULL END) AS blocks,
       (CASE WHEN tuples_total > 0 THEN 1.0 * tuples_done / tuples_total ELSE NULL END) AS tuples,
       (CASE WHEN partitions_total > 0 THEN 1.0 * partitions_done / partitions_total ELSE NULL END) AS partitions,
@@ -1884,10 +1897,12 @@ pg_indexing:
 #==============================================================#
 # 0530 pg_clustering
 #==============================================================#
+# Keep cluster coverage; resolve names in the connected database and for system
+# catalogs (OID < 16384, identical in every database); other relations use OIDs.
 pg_clustering:
   name: pg_clustering
   desc: PostgreSQL cluster or vacuum full progress (v12+)
-  query: SELECT datname, pid, relid::RegClass AS relname, heap_tuples_scanned AS tup_scan, CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0 END AS progress FROM pg_stat_progress_cluster;
+  query: SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname, heap_tuples_scanned AS tup_scan, CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0 END AS progress FROM pg_stat_progress_cluster;
   ttl: 10
   min_version: 120000
   tags: [ cluster, primary ]

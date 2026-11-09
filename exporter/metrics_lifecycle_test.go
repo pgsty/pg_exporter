@@ -78,7 +78,7 @@ func makeCachedCollectorForServer(s *Server, name string, val float64) *Collecto
 
 func TestExporterCollectAndInternalMetrics(t *testing.T) {
 	primary := NewServer("postgresql://u:p@localhost:5432/postgres")
-	primary.beforeScrape = func(s *Server) error {
+	primary.beforeScrape = func(_ context.Context, s *Server) error {
 		s.UP = true
 		s.Version = 160000
 		s.Recovery = false
@@ -90,7 +90,7 @@ func TestExporterCollectAndInternalMetrics(t *testing.T) {
 
 	extra := NewServer("postgresql://u:p@localhost:5432/otherdb")
 	extra.Forked = true
-	extra.beforeScrape = func(s *Server) error {
+	extra.beforeScrape = func(_ context.Context, s *Server) error {
 		s.UP = true
 		s.Version = 160000
 		s.Recovery = false
@@ -109,18 +109,18 @@ func TestExporterCollectAndInternalMetrics(t *testing.T) {
 	ch := make(chan prometheus.Metric, 256)
 	e.Collect(ch)
 
-	if !e.Up() {
-		t.Fatal("Exporter should be UP after successful collect")
+	if got := readGauge(t, e.up); got != 1 {
+		t.Fatalf("pg_up = %v, want 1", got)
 	}
-	if e.Status() != "primary" {
-		t.Fatalf("Exporter status = %s, want primary", e.Status())
+	if e.Status() != "unknown" {
+		t.Fatalf("scrape changed health without a probe: %s", e.Status())
 	}
 }
 
 func TestExporterRecoveryMetricRetainsLastKnownRoleWhenTargetGoesDown(t *testing.T) {
 	primary := NewServer("postgresql://u:p@localhost:5432/postgres")
 	scrape := 0
-	primary.beforeScrape = func(s *Server) error {
+	primary.beforeScrape = func(_ context.Context, s *Server) error {
 		scrape++
 		switch scrape {
 		case 1:
@@ -173,7 +173,7 @@ func TestNewExporterFailFastClosesPrimaryServer(t *testing.T) {
 	checkErr := errors.New("connectivity check failed")
 	server := NewServer("postgresql://u:p@localhost:5432/postgres")
 	server.DB = db
-	server.beforeScrape = func(*Server) error { return checkErr }
+	server.beforeScrape = func(context.Context, *Server) error { return checkErr }
 	serverFactory := func(string, ...ServerOpt) *Server { return server }
 
 	exporter, err := newExporterWithServerFactory(
@@ -203,7 +203,7 @@ func TestNewExporterNonFailFastKeepsPrimaryServerOpen(t *testing.T) {
 	checkErr := errors.New("connectivity check failed")
 	server := NewServer("postgresql://u:p@localhost:5432/postgres")
 	server.DB = db
-	server.beforeScrape = func(*Server) error { return checkErr }
+	server.beforeScrape = func(context.Context, *Server) error { return checkErr }
 	serverFactory := func(string, ...ServerOpt) *Server { return server }
 
 	exporter, err := newExporterWithServerFactory(
@@ -229,7 +229,7 @@ func TestNewExporterNonFailFastKeepsPrimaryServerOpen(t *testing.T) {
 
 func TestExporterDescribeAndCloseNoPanic(t *testing.T) {
 	s := NewServer("postgresql://u:p@localhost:5432/postgres")
-	s.beforeScrape = func(s *Server) error {
+	s.beforeScrape = func(_ context.Context, s *Server) error {
 		s.UP = true
 		return nil
 	}
@@ -255,7 +255,7 @@ func TestExporterDescribeAndCloseNoPanic(t *testing.T) {
 
 func TestDisableIntroSuppressesInternalMetrics(t *testing.T) {
 	s := NewServer("postgresql://u:p@localhost:5432/postgres")
-	s.beforeScrape = func(s *Server) error {
+	s.beforeScrape = func(_ context.Context, s *Server) error {
 		s.UP = true
 		s.Version = 160000
 		s.Recovery = false

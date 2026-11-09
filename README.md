@@ -6,7 +6,7 @@
 
 [![Website: exp.pgsty.com](https://img.shields.io/badge/website-exp.pgsty.com-slategray?style=flat&logo=cilium&logoColor=white)](https://exp.pgsty.com)
 [![DockerHub: pgsty/pg_exporter](https://img.shields.io/badge/docker-pgsty/pg_exporter-slategray?style=flat&logo=docker&logoColor=white)](https://hub.docker.com/r/pgsty/pg_exporter)
-[![Version: 1.5.0](https://img.shields.io/badge/version-1.5.0-slategray?style=flat&logo=cilium&logoColor=white)](https://github.com/pgsty/pg_exporter/releases/tag/v1.5.0)
+[![Version: 1.6.0](https://img.shields.io/badge/version-1.6.0-slategray?style=flat&logo=cilium&logoColor=white)](https://github.com/pgsty/pg_exporter/releases/tag/v1.6.0)
 [![License: Apache-2.0](https://img.shields.io/github/license/pgsty/pg_exporter?logo=opensourceinitiative&logoColor=green&color=slategray)](https://github.com/pgsty/pg_exporter/blob/main/LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/pgsty/pg_exporter?style=flat&logo=github&logoColor=black&color=slategray)](https://star-history.com/#pgsty/pg_exporter&Date)
 [![Go Report Card](https://goreportcard.com/badge/github.com/pgsty/pg_exporter)](https://goreportcard.com/report/github.com/pgsty/pg_exporter)
@@ -50,12 +50,14 @@ Check [**https://demo.pigsty.io**](https://demo.pigsty.io/ui/) for live demo, wh
 
 > Also support PG 9.x with [legacy config bundle](legacy/).
 
-### v1.5.0
+### v1.6.0
 
-Built with **Go 1.27.3** and updated Prometheus, HTTP/2, compression, and YAML dependencies.
-This release corrects replication metric identities and state mappings, protects malformed connection URLs,
-and fixes database discovery, concurrent health responses, metadata replanning, duration validation, and custom metrics routes.
-See the [release notes](https://exp.pgsty.com/release/v1.5.0/) for security fixes and upgrade notes, including the new `datname` label on `pg_sub_*` and PostgreSQL 10–13 monitoring grants.
+Health probes run independently of metric collection, and completed scrapes no longer overwrite newer health observations.
+Metrics requests have cancelable waiting and a two-request admission limit. A started bounded collector finishes within its own deadline and caches its result; cancellation stops subsequent collectors and databases without counting an interrupted pass as a target error.
+Cross-database progress metrics keep cluster-wide coverage and use numeric OIDs for user relations outside the connected database. **Update the collector YAML as well as the binary** to apply this correction.
+
+Container images include system CA certificates and the license. Dependencies now include YAML v4; existing configuration syntax is preserved.
+See the [release notes](https://exp.pgsty.com/release/v1.6.0/) for health, timeout, label-value, and PgBouncer connection-pool changes.
 
 
 --------

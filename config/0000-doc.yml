@@ -186,6 +186,15 @@
 # avalanche. You can explicitly overwrite that option. but beware: in some extreme cases, if all your
 # timeouts sum up greater your scrape/cache interval (usually 15s), the queries may still be jammed.
 # or, you can just disable potential slow queries.
+# HTTP waiting and collection share the existing 30-second write-timeout budget,
+# shortened by a valid positive X-Prometheus-Scrape-Timeout-Seconds header.
+# Expired budgets stop collection between collectors. A collector already running
+# with a timeout finishes its predicates and main query under that one deadline,
+# so a departing client does not discard its result; only a negative-timeout
+# query is canceled with the request and then keeps the normal failure TTL. An
+# interrupted pass is not counted as a connection or fatal error. At most two
+# metrics requests are admitted; collection is serial and waiting is cancelable.
+# Further requests receive HTTP 503. Driver/network stalls can outlive deadlines.
 
 #==============================================================#
 # 7. Version Compatibility

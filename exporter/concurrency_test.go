@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -16,7 +17,7 @@ func newMockExporter(up bool, recovery bool) *Exporter {
 		UP:        up,
 		Recovery:  recovery,
 	}
-	s.beforeScrape = func(s *Server) error {
+	s.beforeScrape = func(_ context.Context, s *Server) error {
 		s.UP = up
 		s.Recovery = recovery
 		return nil

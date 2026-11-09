@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -92,7 +93,7 @@ func TestHealthHandlersPassiveModeNoActiveProbe(t *testing.T) {
 		Database:  "postgres",
 		Databases: map[string]bool{"postgres": true},
 	}
-	s.beforeScrape = func(s *Server) error {
+	s.beforeScrape = func(_ context.Context, s *Server) error {
 		checkCount.Add(1)
 		s.UP = false
 		s.Recovery = false

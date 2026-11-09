@@ -1,11 +1,13 @@
 #==============================================================#
 # 0510 pg_vacuuming
 #==============================================================#
+# Keep cluster coverage; resolve names in the connected database and for system
+# catalogs (OID < 16384, identical in every database); other relations use OIDs.
 pg_vacuuming_18:
   name: pg_vacuuming
   desc: PostgreSQL vacuum progress 18+
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       CASE phase WHEN 'scanning heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0.0 END)
         WHEN 'vacuuming heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_vacuumed / heap_blks_total ELSE 0 END) ELSE NULL END AS progress,
       indexes_total, indexes_processed, dead_tuple_bytes, delay_time
@@ -28,7 +30,7 @@ pg_vacuuming_17:
   name: pg_vacuuming
   desc: PostgreSQL vacuum progress 17 (with index progress tracking)
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       CASE phase WHEN 'scanning heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0.0 END)
         WHEN 'vacuuming heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_vacuumed / heap_blks_total ELSE 0 END) ELSE NULL END AS progress,
       indexes_total, indexes_processed, dead_tuple_bytes
@@ -51,7 +53,7 @@ pg_vacuuming_12:
   name: pg_vacuuming
   desc: PostgreSQL vacuum progress 12-16
   query: |-
-    SELECT datname, pid, relid::RegClass AS relname,
+    SELECT datname, pid, CASE WHEN datid = (SELECT oid FROM pg_database WHERE datname = current_database()) OR relid < 16384 THEN relid::regclass::text ELSE relid::text END AS relname,
       CASE phase WHEN 'scanning heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_scanned / heap_blks_total ELSE 0.0 END)
         WHEN 'vacuuming heap' THEN (CASE WHEN heap_blks_total > 0 THEN 1.0 * heap_blks_vacuumed / heap_blks_total ELSE 0 END) ELSE NULL END AS progress
     FROM pg_stat_progress_vacuum;

@@ -87,11 +87,18 @@ func (q *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implement prometheus.Collector
 func (q *Collector) Collect(ch chan<- prometheus.Metric) {
+	q.collect(context.Background(), ch)
+}
+
+func (q *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
 	q.scrapeBegin = time.Now()
 	if q.cacheExpired() || q.Server.DisableCache {
-		q.execute()
+		q.executeContext(ctx)
 		q.cacheHit = false
 		q.scrapeDone = time.Now()
 		q.scrapeDuration = q.scrapeDone.Sub(q.scrapeBegin)
@@ -100,7 +107,13 @@ func (q *Collector) Collect(ch chan<- prometheus.Metric) {
 		q.cacheHit = true
 		q.scrapeDone = time.Now()
 	}
-	q.sendMetrics(ch) // a failed real execution intentionally leaves an empty result
+	for _, metric := range q.result {
+		select {
+		case ch <- metric:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // ResultSize report last scraped metric count
@@ -164,8 +177,7 @@ func (q *Collector) executePredicateQueries(ctx context.Context) bool {
 			// If a predicate query fails that's treated as a skip, and the err
 			// flag is set so Fatal will be respected if set.
 			if errors.Is(err, context.DeadlineExceeded) { // timeout
-				q.err = fmt.Errorf("%s timeout because duration %v exceed limit %v",
-					msgPrefix, time.Since(q.scrapeBegin), q.TimeoutDuration())
+				q.err = fmt.Errorf("%s timeout after %v: %w", msgPrefix, time.Since(q.scrapeBegin), err)
 			} else {
 				q.err = fmt.Errorf("%s failed: %w", msgPrefix, err)
 			}
@@ -235,6 +247,10 @@ func (q *Collector) executePredicateQueries(ctx context.Context) bool {
 
 // execute will run this query to registered server, result and err are registered
 func (q *Collector) execute() {
+	q.executeContext(context.Background())
+}
+
+func (q *Collector) executeContext(ctx context.Context) {
 	// A failed refresh must never publish a prefix of the new result or retain an
 	// old snapshot. Build the complete scrape locally and publish it only after
 	// rows, scalar metrics, and all histogram groups have been validated.
@@ -245,11 +261,15 @@ func (q *Collector) execute() {
 	var rows *sql.Rows
 	var err error
 
-	ctx := context.Background()
 	if q.Timeout != 0 { // if timeout is provided, use context
 		logDebugf("query [%s] @ server [%s] executing begin with time limit: %v", q.Name, q.Server.Database, q.TimeoutDuration())
+		// A started bounded refresh (its predicates and main query share this one
+		// deadline) finishes even if the request ends: a departing client must not
+		// turn a healthy refresh into a cached failure shared by every scraper. No
+		// further collector starts once the request ends. Only unbounded queries
+		// (negative timeout) follow the request budget.
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), q.TimeoutDuration())
+		ctx, cancel = context.WithTimeout(context.WithoutCancel(ctx), q.TimeoutDuration())
 		defer cancel()
 	} else {
 		logDebugf("query [%s] @ server [%s] executing begin", q.Name, q.Server.Database)
@@ -267,8 +287,7 @@ func (q *Collector) execute() {
 	// error handling: if query failed because of timeout or error, record and return
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) { // timeout
-			q.err = fmt.Errorf("query [%s] timeout because duration %v exceed limit %v",
-				q.Name, time.Since(q.scrapeBegin), q.TimeoutDuration())
+			q.err = fmt.Errorf("query [%s] timeout after %v: %w", q.Name, time.Since(q.scrapeBegin), err)
 		} else {
 			q.err = fmt.Errorf("query [%s] failed: %w", q.Name, err)
 		}
@@ -322,6 +341,9 @@ func (q *Collector) execute() {
 
 	// scan loop: for each row, extract labels from all label columns, then generate a new metric for each metric column
 	for rows.Next() {
+		if q.err = ctx.Err(); q.err != nil {
+			return
+		}
 		err = rows.Scan(colArgs...)
 		if err != nil {
 			q.err = fmt.Errorf("fail scanning rows: %w", err)
@@ -419,6 +441,9 @@ func (q *Collector) execute() {
 		}
 	}
 
+	if q.err = ctx.Err(); q.err != nil {
+		return
+	}
 	q.result = pending
 	q.err = nil
 	logDebugf("query [%s] executing complete in %v, metrics count: %d",
