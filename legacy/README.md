@@ -5,6 +5,15 @@ This directory contains the **legacy pg_exporter config bundle** for **PostgreSQ
 - `pg_exporter.yml`: merged legacy config (ready to use)
 - `config/`: separated collector definitions (source of truth)
 
+The legacy bundle is maintained separately on `main`; it is not included in binary archives or RPM/DEB packages. Use the current bundle rather than the copy in an older release tag. In particular, PostgreSQL 9.1 needs the table-size query's zero-TOAST guard: a table without a TOAST relation must report a zero TOAST size instead of querying relation OID 0.
+
+Download the maintained bundle independently of the exporter binary:
+
+```bash
+curl -fSL https://raw.githubusercontent.com/pgsty/pg_exporter/main/legacy/pg_exporter.yml -o pg_exporter-legacy.yml
+pg_exporter --config=pg_exporter-legacy.yml --url='postgres://monitor@localhost:5432/postgres'
+```
+
 ## Generate / Update
 
 From the repository root:

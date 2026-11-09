@@ -8,7 +8,7 @@ pg_table_size:
        pg_total_relation_size(rel.oid)       AS bytes,
        pg_relation_size(rel.oid)             AS relsize,
        pg_indexes_size(rel.oid)              AS indexsize,
-       pg_total_relation_size(reltoastrelid) AS toastsize
+       CASE WHEN reltoastrelid = 0 THEN 0 ELSE pg_total_relation_size(reltoastrelid) END AS toastsize
     FROM pg_namespace nsp JOIN pg_class rel ON nsp.oid = rel.relnamespace
     WHERE nspname <> ALL(ARRAY['pg_catalog', 'information_schema']) AND rel.relkind = 'r'
     ORDER BY 3 DESC NULLS LAST LIMIT 256;

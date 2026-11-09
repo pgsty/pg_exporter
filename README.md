@@ -256,6 +256,8 @@ Configs lie in the core of `pg_exporter`. Actually, this project contains more l
 * Authoritative Histogram design: [SQL Histogram contract](https://exp.pgsty.com/design/snapshot-histograms/)
 * Legacy config bundle for PostgreSQL 9.1 - 9.6: [`legacy/`](legacy/) ([`legacy/README.md`](legacy/README.md))
 
+The legacy bundle is maintained separately on `main` and is not included in binary archives or RPM/DEB packages. Use the current bundle for PostgreSQL 9.1, including its fix for tables without TOAST; an older release tag's copy can fail to collect table sizes. See the [legacy installation instructions](https://exp.pgsty.com/install/#compatibility).
+
 Current `pg_exporter` ships 58 collector definition files in [`config/`](config/). They are merged into [`pg_exporter.yml`](pg_exporter.yml) by `make conf`.
 
 | File                                                              | Collector namespace(s)                | Scope / requirement                                                                                                             |
