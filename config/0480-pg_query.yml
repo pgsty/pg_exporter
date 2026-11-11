@@ -62,7 +62,7 @@ pg_query_10:
 
   ttl: 10
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   max_version: 130000
   tags: [ cluster, "extension:pg_stat_statements" ]
   metrics:

@@ -291,6 +291,15 @@ func (e *Exporter) collect(ctx context.Context, ch chan<- prometheus.Metric) {
 	}
 }
 
+func emitConstMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, valueType prometheus.ValueType, value float64, labelValues ...string) {
+	m, err := prometheus.NewConstMetric(desc, valueType, value, labelValues...)
+	if err != nil {
+		logWarnf("skip invalid internal metric %s: %v", desc.String(), err)
+		return
+	}
+	ch <- m
+}
+
 func (e *Exporter) collectServerMetrics(ch chan<- prometheus.Metric) {
 	servers := e.IterateServer()
 	if e.server != nil {
@@ -317,31 +326,31 @@ func (e *Exporter) collectServerMetrics(ch chan<- prometheus.Metric) {
 		queryScrapeDuration := s.queryScrapeDuration
 		s.lock.RUnlock()
 
-		ch <- prometheus.MustNewConstMetric(e.serverScrapeDurationDesc, prometheus.GaugeValue, scrapeDur, datname)
-		ch <- prometheus.MustNewConstMetric(e.serverScrapeTotalSecondsDesc, prometheus.GaugeValue, totalSeconds, datname)
-		ch <- prometheus.MustNewConstMetric(e.serverScrapeTotalCountDesc, prometheus.GaugeValue, totalCount, datname)
-		ch <- prometheus.MustNewConstMetric(e.serverScrapeErrorCountDesc, prometheus.GaugeValue, errorCount, datname)
+		emitConstMetric(ch, e.serverScrapeDurationDesc, prometheus.GaugeValue, scrapeDur, datname)
+		emitConstMetric(ch, e.serverScrapeTotalSecondsDesc, prometheus.GaugeValue, totalSeconds, datname)
+		emitConstMetric(ch, e.serverScrapeTotalCountDesc, prometheus.GaugeValue, totalCount, datname)
+		emitConstMetric(ch, e.serverScrapeErrorCountDesc, prometheus.GaugeValue, errorCount, datname)
 
 		for queryName, v := range queryCacheTTL {
-			ch <- prometheus.MustNewConstMetric(e.queryCacheTTLDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryCacheTTLDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 		for queryName, v := range queryScrapeTotalCount {
-			ch <- prometheus.MustNewConstMetric(e.queryScrapeTotalCountDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryScrapeTotalCountDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 		for queryName, v := range queryScrapeHitCount {
-			ch <- prometheus.MustNewConstMetric(e.queryScrapeHitCountDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryScrapeHitCountDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 		for queryName, v := range queryScrapeErrorCount {
-			ch <- prometheus.MustNewConstMetric(e.queryScrapeErrorCountDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryScrapeErrorCountDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 		for queryName, v := range queryScrapePredicateSkipCount {
-			ch <- prometheus.MustNewConstMetric(e.queryScrapePredicateSkipCountDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryScrapePredicateSkipCountDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 		for queryName, v := range queryScrapeMetricCount {
-			ch <- prometheus.MustNewConstMetric(e.queryScrapeMetricCountDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryScrapeMetricCountDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 		for queryName, v := range queryScrapeDuration {
-			ch <- prometheus.MustNewConstMetric(e.queryScrapeDurationDesc, prometheus.GaugeValue, v, datname, queryName)
+			emitConstMetric(ch, e.queryScrapeDurationDesc, prometheus.GaugeValue, v, datname, queryName)
 		}
 	}
 }
@@ -373,21 +382,15 @@ func (e *Exporter) Close() {
 	defer e.lock.Unlock()
 
 	if e.server != nil {
-		if e.server.DB != nil {
-			err := e.server.Close()
-			if err != nil {
-				logErrorf("fail closing server %s: %s", e.server.Name(), err.Error())
-			}
+		if err := e.server.Close(); err != nil {
+			logErrorf("fail closing server %s: %s", e.server.Name(), err.Error())
 		}
 	}
 	// close peripheral servers (we may skip acquire lock here)
 	for _, srv := range e.IterateServer() {
 		if srv != nil {
-			if srv.DB != nil {
-				err := srv.Close()
-				if err != nil {
-					logErrorf("fail closing server %s: %s", srv.Name(), err.Error())
-				}
+			if err := srv.Close(); err != nil {
+				logErrorf("fail closing server %s: %s", srv.Name(), err.Error())
 			}
 		}
 	}
@@ -428,9 +431,11 @@ func (e *Exporter) setupInternalMetrics() {
 		"goos":      GOOS,
 		"goarch":    GOARCH,
 	}
-	// Merge with user-provided constant labels
+	// Merge with user-provided constant labels without overwriting reserved build info keys
 	for k, v := range e.constLabels {
-		buildInfoLabels[k] = v
+		if _, reserved := buildInfoLabels[k]; !reserved {
+			buildInfoLabels[k] = v
+		}
 	}
 	e.buildInfo = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   e.namespace,
@@ -578,6 +583,12 @@ func newExporterWithServerFactory(dsn string, serverFactory func(string, ...Serv
 		}
 	}
 
+	if e.namespace != "" {
+		if err := validatePromMetricName(e.namespace + "_up"); err != nil {
+			return nil, fmt.Errorf("invalid metric namespace %q: %w", e.namespace, err)
+		}
+	}
+
 	if err := validateConstLabelConflicts(e.constLabels, e.queries, e.disableIntro); err != nil {
 		return nil, fmt.Errorf("invalid constant labels: %w", err)
 	}
@@ -605,10 +616,8 @@ func newExporterWithServerFactory(dsn string, serverFactory func(string, ...Serv
 	// The actual scrape path will reconnect and re-plan when the target comes back.
 	if err = e.server.Check(); err != nil {
 		if e.failFast {
-			if e.server.DB != nil {
-				if closeErr := e.server.Close(); closeErr != nil {
-					logErrorf("fail closing primary server after connectivity check failure: %s", closeErr.Error())
-				}
+			if closeErr := e.server.Close(); closeErr != nil {
+				logErrorf("fail closing primary server after connectivity check failure: %s", closeErr.Error())
 			}
 			return nil, fmt.Errorf("fail connecting to primary server: %w", err)
 		}
@@ -674,9 +683,20 @@ func (e *Exporter) CreateServer(dbname string) {
 	newServer.Forked = true // important!
 
 	e.sLock.Lock()
+	old := e.servers[dbname]
 	e.servers[dbname] = newServer
 	logInfof("database %s is installed due to auto-discovery", dbname)
-	defer e.sLock.Unlock()
+	e.sLock.Unlock()
+
+	if old != nil {
+		go func(dbname string, srv *Server) {
+			srv.lock.Lock()
+			defer srv.lock.Unlock()
+			if err := srv.Close(); err != nil {
+				logErrorf("fail closing replaced database server %s: %s", dbname, err.Error())
+			}
+		}(dbname, old)
+	}
 }
 
 // RemoveServer will destroy Server from Exporter according to database name
@@ -690,14 +710,14 @@ func (e *Exporter) RemoveServer(dbname string) {
 	e.sLock.Unlock()
 
 	if ok && srv != nil {
-		if srv.DB != nil {
-			// Close asynchronously to avoid blocking the scrape path.
-			go func(dbname string, srv *Server) {
-				if err := srv.Close(); err != nil {
-					logErrorf("fail closing removed database server %s: %s", dbname, err.Error())
-				}
-			}(dbname, srv)
-		}
+		// Close asynchronously to avoid blocking the scrape path, waiting for any active scrape to finish.
+		go func(dbname string, srv *Server) {
+			srv.lock.Lock()
+			defer srv.lock.Unlock()
+			if err := srv.Close(); err != nil {
+				logErrorf("fail closing removed database server %s: %s", dbname, err.Error())
+			}
+		}(dbname, srv)
 	}
 	logWarnf("database %s is removed due to auto-discovery", dbname)
 }

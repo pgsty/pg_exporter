@@ -131,3 +131,92 @@ func TestServerNonFatalMissingLabelDoesNotStopOtherCollectors(t *testing.T) {
 		t.Fatalf("good collector scrape count = %v, want 1", got)
 	}
 }
+
+func TestCollectorDuplicateLabelTupleIsolatedFromOtherCollectors(t *testing.T) {
+	dupQuery := histogramTestQuery(
+		"test_dup_label",
+		[]string{"datname"},
+		map[string]*Column{
+			"value": {Name: "value", Usage: GAUGE},
+		},
+		[]string{"value"},
+	)
+	dupCollector := newHistogramTestCollector(t, dupQuery, func() driver.Rows {
+		return &histogramTestRows{
+			columns: []string{"datname", "value"},
+			values: [][]driver.Value{
+				{"same_db", float64(1)},
+				{"same_db", float64(2)},
+			},
+		}
+	}, nil)
+
+	goodQuery := histogramTestQuery(
+		"test_healthy",
+		[]string{"datname"},
+		map[string]*Column{
+			"value": {Name: "value", Usage: GAUGE},
+		},
+		[]string{"value"},
+	)
+	goodCollector := newHistogramTestCollector(t, goodQuery, func() driver.Rows {
+		return &histogramTestRows{
+			columns: []string{"datname", "value"},
+			values:  [][]driver.Value{{"ok_db", float64(42)}},
+		}
+	}, nil)
+
+	server := dupCollector.Server
+	server.beforeScrape = func(_ context.Context, s *Server) error {
+		s.UP = true
+		return nil
+	}
+	server.Planned = true
+	server.Collectors = []*Collector{dupCollector, goodCollector}
+	server.ResetStats()
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(server)
+	families, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Registry.Gather failed despite non-fatal duplicate row isolation: %v", err)
+	}
+	if dupCollector.Error() == nil || !strings.Contains(dupCollector.Error().Error(), "duplicate label set") {
+		t.Fatalf("dupCollector error = %v, want duplicate label set error", dupCollector.Error())
+	}
+	if dupCollector.ResultSize() != 0 {
+		t.Fatalf("dupCollector ResultSize = %d, want 0", dupCollector.ResultSize())
+	}
+	if len(families) != 1 || families[0].GetName() != "test_healthy_value" {
+		t.Fatalf("unexpected gathered families: %+v", families)
+	}
+}
+
+func TestCollectorDirectCollectZeroTTLRunsWithoutServerScrapeBegin(t *testing.T) {
+	q := histogramTestQuery(
+		"test_zero_ttl",
+		[]string{"datname"},
+		map[string]*Column{
+			"value": {Name: "value", Usage: GAUGE},
+		},
+		[]string{"value"},
+	)
+	q.TTL = 0
+	c := newHistogramTestCollector(t, q, func() driver.Rows {
+		return &histogramTestRows{
+			columns: []string{"datname", "value"},
+			values:  [][]driver.Value{{"db", float64(7)}},
+		}
+	}, nil)
+	// Leave c.Server.scrapeBegin zero and call Collect directly twice.
+	for i := 0; i < 2; i++ {
+		ch := make(chan prometheus.Metric, 2)
+		c.Collect(ch)
+		if c.CacheHit() {
+			t.Fatalf("pass %d unexpectedly hit cache when TTL=0", i)
+		}
+		if len(ch) != 1 {
+			t.Fatalf("pass %d emitted %d metrics, want 1", i, len(ch))
+		}
+	}
+}

@@ -111,6 +111,18 @@ func (s *Server) Error() error {
 	return s.err
 }
 
+// Close safely closes the underlying sql.DB connection pool if initialized.
+func (s *Server) Close() error {
+	s.dbMu.Lock()
+	db := s.DB
+	s.DB = nil
+	s.dbMu.Unlock()
+	if db == nil {
+		return nil
+	}
+	return db.Close()
+}
+
 // Check will issue a connection and executing precheck hook function
 func (s *Server) Check() error {
 	s.lock.Lock()
@@ -333,7 +345,7 @@ func postgresPrecheck(parent context.Context, s *Server) (err error) {
 	defer cancel2()
 	if err = s.DB.QueryRowContext(ctx2, precheckSQL).Scan(&datname, &username, &recovery, pq.Array(&databases), pq.Array(&namespaces), pq.Array(&extensions)); err != nil {
 		s.UP = false
-		return fmt.Errorf("fail fetching server version: %w", err)
+		return fmt.Errorf("fail fetching server metadata: %w", err)
 	}
 	if s.Recovery != recovery {
 		logInfof("server [%s] recovery status changed: from [%v] to [%v]", s.Name(), s.Recovery, recovery)
@@ -398,9 +410,13 @@ func postgresPrecheck(parent context.Context, s *Server) (err error) {
 func (s *Server) Plan(queries ...*Query) {
 	// if queries are explicitly given, use it instead of server.queries
 	if len(queries) > 0 {
-		newQueries := make(map[string]*Query)
+		newQueries := make(map[string]*Query, len(queries))
 		for _, q := range queries {
-			newQueries[q.Name] = q
+			key := q.Branch
+			if key == "" {
+				key = q.Name
+			}
+			newQueries[key] = q
 		}
 		s.queries = newQueries
 	}

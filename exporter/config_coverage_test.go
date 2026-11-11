@@ -28,6 +28,14 @@ func loadConfigDirForTest(t *testing.T, rel string) map[string]*Query {
 	return queries
 }
 
+func hasPrimaryRoleTag(q *Query) bool {
+	return q.HasTag("primary") || q.HasTag("master") || q.HasTag("leader")
+}
+
+func hasReplicaRoleTag(q *Query) bool {
+	return q.HasTag("replica") || q.HasTag("standby") || q.HasTag("slave")
+}
+
 // branchesMutuallyExclusive reports whether overlapping branches for one
 // collector are acceptable because they split on the engine-defined
 // primary/replica tag pair. This is a tag-semantics check, deliberately not
@@ -36,8 +44,8 @@ func branchesMutuallyExclusive(appl []*Query) bool {
 	if len(appl) != 2 {
 		return false
 	}
-	return (appl[0].HasTag("primary") && appl[1].HasTag("replica")) ||
-		(appl[0].HasTag("replica") && appl[1].HasTag("primary"))
+	return (hasPrimaryRoleTag(appl[0]) && hasReplicaRoleTag(appl[1])) ||
+		(hasReplicaRoleTag(appl[0]) && hasPrimaryRoleTag(appl[1]))
 }
 
 // Ensure the repo-bundled config/ covers PG10..PG19 without version gaps for
@@ -64,12 +72,12 @@ func TestConfigCoveragePG10To19(t *testing.T) {
 			}
 		}
 
-		// Collectors introduced after PG10 are allowed to have gaps for PG10-.
-		if minMin > 100000 {
-			continue
-		}
-
 		for v := 100000; v <= 190000; v += 10000 { // PG10..PG19
+			// Collectors introduced after v are allowed to have gaps for older versions.
+			if minMin != 0 && v < minMin {
+				continue
+			}
+
 			var appl []*Query
 			for _, q := range qs {
 				if q.MinVersion != 0 && v < q.MinVersion {
@@ -88,6 +96,59 @@ func TestConfigCoveragePG10To19(t *testing.T) {
 
 			if len(appl) > 1 && !branchesMutuallyExclusive(appl) {
 				t.Errorf("collector %q has %d overlapping branches for server_version_num=%d: %v", name, len(appl), v, func() []string {
+					out := make([]string, 0, len(appl))
+					for _, q := range appl {
+						out = append(out, q.Branch)
+					}
+					return out
+				}())
+			}
+		}
+	}
+}
+
+func TestConfigCoveragePgbouncer(t *testing.T) {
+	queries := loadConfigDirForTest(t, "config")
+
+	byName := make(map[string][]*Query)
+	for _, q := range queries {
+		if !q.HasTag("pgbouncer") {
+			continue
+		}
+		byName[q.Name] = append(byName[q.Name], q)
+	}
+
+	for name, qs := range byName {
+		minMin := 0
+		for i, q := range qs {
+			if i == 0 || q.MinVersion < minMin {
+				minMin = q.MinVersion
+			}
+		}
+
+		for v := 10800; v <= 12600; v += 100 { // PgBouncer 1.8..1.26
+			if minMin != 0 && v < minMin {
+				continue
+			}
+
+			var appl []*Query
+			for _, q := range qs {
+				if q.MinVersion != 0 && v < q.MinVersion {
+					continue
+				}
+				if q.MaxVersion != 0 && v >= q.MaxVersion {
+					continue
+				}
+				appl = append(appl, q)
+			}
+
+			if len(appl) == 0 {
+				t.Errorf("pgbouncer collector %q has no branch for version=%d", name, v)
+				continue
+			}
+
+			if len(appl) > 1 {
+				t.Errorf("pgbouncer collector %q has %d overlapping branches for version=%d: %v", name, len(appl), v, func() []string {
 					out := make([]string, 0, len(appl))
 					for _, q := range appl {
 						out = append(out, q.Branch)

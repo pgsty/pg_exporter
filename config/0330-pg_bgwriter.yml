@@ -20,7 +20,7 @@ pg_bgwriter_10:
   desc: "PostgreSQL background writer metrics (PG 9.4-16)"
   query: SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time, checkpoint_sync_time, buffers_checkpoint, buffers_clean, buffers_backend, maxwritten_clean, buffers_backend_fsync, buffers_alloc, extract(EPOCH FROM stats_reset) AS reset_time FROM pg_stat_bgwriter;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   max_version: 170000
   tags: [ cluster ]
   metrics:

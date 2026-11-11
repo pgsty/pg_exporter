@@ -7,7 +7,7 @@ pg_sync_standby:
   query: |
     SELECT CASE WHEN names <> '' THEN names ELSE '<null>' END AS names, CASE WHEN names <> '' THEN 1 ELSE 0 END AS enabled FROM (SELECT current_setting('synchronous_standby_names') AS names) n;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - names:             { usage: LABEL ,description: "List of standby servers that can support synchronous replication, <null> if not enabled" }

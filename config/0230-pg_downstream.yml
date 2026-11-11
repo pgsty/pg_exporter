@@ -7,7 +7,7 @@ pg_downstream:
   query: |
     SELECT l.state, coalesce(count, 0 ) AS count FROM unnest(ARRAY ['streaming','startup','catchup', 'backup', 'stopping']) l(state) LEFT JOIN (SELECT state, count(*) AS count FROM pg_stat_replication GROUP BY state)r ON l.state =  r.state;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - state:             { usage: LABEL ,description: "Replication client state, could be one of startup|catchup|streaming|backup|stopping" }

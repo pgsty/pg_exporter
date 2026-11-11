@@ -10,7 +10,7 @@ pg_table_size:
        pg_indexes_size(rel.oid)              AS indexsize,
        pg_total_relation_size(reltoastrelid) AS toastsize
     FROM pg_namespace nsp JOIN pg_class rel ON nsp.oid = rel.relnamespace
-    WHERE nspname <> ALL(ARRAY['pg_catalog', 'information_schema']) AND rel.relkind = 'r'
+    WHERE nsp.nspname <> ALL(ARRAY['pg_catalog', 'information_schema']) AND nsp.nspname !~ '^pg_(toast|temp)' AND rel.relkind = 'r'
     ORDER BY 3 DESC NULLS LAST LIMIT 256;
 
   ttl: 300
@@ -20,7 +20,7 @@ pg_table_size:
     - datname:             { usage: LABEL    ,description: "Database name of this table" }
     - relname:             { usage: LABEL    ,description: "Schema qualified table name" }
     - bytes:               { usage: GAUGE    ,default: 0  ,description: "Total bytes of this table (including toast, index, toast index)" }
-    - relsize:             { usage: GAUGE    ,default: 0  ,description: "Bytes of this table itself (main, vm, fsm)" }
+    - relsize:             { usage: GAUGE    ,default: 0  ,description: "Bytes of the main data fork of this table" }
     - indexsize:           { usage: GAUGE    ,default: 0  ,description: "Bytes of all related indexes of this table" }
     - toastsize:           { usage: GAUGE    ,default: 0  ,description: "Bytes of toast tables of this table" }
 

@@ -13,7 +13,7 @@ pg_heartbeat:
     SELECT id AS cluster_name, extract(EPOCH FROM ts) AS ts, lsn, txid FROM monitor.heartbeat;
 
   ttl: 10
-  min_version: 090100
+  min_version: 90100
   tags: [ "dbname:postgres", "schema:monitor" ]
   skip: true
   metrics:

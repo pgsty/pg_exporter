@@ -7,7 +7,7 @@ pg_relkind:
   query: SELECT CURRENT_CATALOG AS datname, relkind, count(*) AS count FROM pg_class GROUP BY relkind;
   ttl: 60
   timeout: 1
-  min_version: 090400
+  min_version: 90400
   metrics:
     - datname:             { usage: LABEL    ,description: "Name of database" }
     - relkind:             { usage: LABEL    ,description: "Kind of this relation, could be r,i,S,t,v,m,c,f,p,I" }

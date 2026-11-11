@@ -327,3 +327,77 @@ func TestServerIntrospectionHelpers(t *testing.T) {
 		t.Fatal("ExplainHTML should not be empty")
 	}
 }
+
+func TestNewExporterValidatesNamespaceAndPreservesBuildInfo(t *testing.T) {
+	if _, err := NewExporter(
+		"postgresql://u:p@localhost:5432/postgres?sslmode=disable",
+		WithNamespace("bad-ns!"),
+	); err == nil {
+		t.Fatal("expected NewExporter to reject invalid metric namespace")
+	}
+
+	s := NewServer("postgresql://u:p@localhost:5432/postgres")
+	s.Database = "postgres\xff" // invalid UTF-8 datname must not panic collectServerMetrics
+	s.beforeScrape = func(_ context.Context, srv *Server) error {
+		srv.UP = true
+		srv.Version = 160000
+		return nil
+	}
+	s.Planned = true
+	s.ResetStats()
+
+	e, err := newExporterWithServerFactory(
+		"postgresql://u:p@localhost:5432/postgres?sslmode=disable",
+		func(string, ...ServerOpt) *Server { return s },
+		WithConstLabels("version=user-override,env=prod"),
+	)
+	if err != nil {
+		t.Fatalf("newExporterWithServerFactory failed: %v", err)
+	}
+	defer e.Close()
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(e)
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Gather failed: %v", err)
+	}
+
+	var foundBuildInfo bool
+	for _, mf := range mfs {
+		if mf.GetName() == "pg_exporter_build_info" && len(mf.Metric) == 1 {
+			foundBuildInfo = true
+			labels := map[string]string{}
+			for _, lp := range mf.Metric[0].Label {
+				labels[lp.GetName()] = lp.GetValue()
+			}
+			if labels["version"] != Version {
+				t.Fatalf("build_info version = %q, want %q", labels["version"], Version)
+			}
+			if labels["env"] != "prod" {
+				t.Fatalf("build_info env = %q, want prod", labels["env"])
+			}
+		}
+	}
+	if !foundBuildInfo {
+		t.Fatal("pg_exporter_build_info metric missing from Gather")
+	}
+}
+
+func TestServerPlanVariadicPreservesSameNameBranches(t *testing.T) {
+	q16 := makeGaugeQuery("pg_test", 10)
+	q16.Branch = "pg_test_16"
+	q16.MinVersion = 160000
+	q16.MaxVersion = 180000
+
+	q18 := makeGaugeQuery("pg_test", 10)
+	q18.Branch = "pg_test_18"
+	q18.MinVersion = 180000
+
+	s := NewServer("postgresql://u:p@localhost:5432/postgres")
+	s.Version = 160000
+	s.Plan(q16, q18)
+	if len(s.Collectors) != 1 || s.Collectors[0].Branch != "pg_test_16" {
+		t.Fatalf("expected pg_test_16 to be installed on PG16, got %+v", s.Collectors)
+	}
+}

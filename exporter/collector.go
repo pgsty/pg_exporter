@@ -102,7 +102,11 @@ func (q *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) {
 		q.cacheHit = false
 		q.scrapeDone = time.Now()
 		q.scrapeDuration = q.scrapeDone.Sub(q.scrapeBegin)
-		q.lastScrape = q.Server.scrapeBegin
+		if !q.Server.scrapeBegin.IsZero() {
+			q.lastScrape = q.Server.scrapeBegin
+		} else {
+			q.lastScrape = q.scrapeBegin
+		}
 	} else { // serve from cache
 		q.cacheHit = true
 		q.scrapeDone = time.Now()
@@ -327,17 +331,29 @@ func (q *Collector) executeContext(ctx context.Context) {
 	// A missing scalar column preserves the historic warn-and-skip behavior. A
 	// missing histogram column is an error because silently emitting no groups is
 	// indistinguishable from a valid empty population.
+	var firstScalarMetric string
 	for _, metricName := range q.MetricNames {
 		column := q.Columns[metricName]
-		if column != nil && column.IsHistogram() {
+		if column == nil {
+			continue
+		}
+		if column.IsHistogram() {
 			if _, found := columnIndexes[metricName]; !found {
 				q.err = fmt.Errorf("query [%s] missing histogram column %s.%s in result", q.Name, q.Name, metricName)
 				return
+			}
+		} else if firstScalarMetric == "" {
+			if _, found := columnIndexes[metricName]; found {
+				firstScalarMetric = metricName
 			}
 		}
 	}
 
 	histograms := make(map[string]map[string]*histogramAccumulator)
+	var seenScalarLabels map[string]struct{}
+	if firstScalarMetric != "" {
+		seenScalarLabels = make(map[string]struct{})
+	}
 
 	// scan loop: for each row, extract labels from all label columns, then generate a new metric for each metric column
 	for rows.Next() {
@@ -354,6 +370,14 @@ func (q *Collector) executeContext(ctx context.Context) {
 		labels := make([]string, len(q.LabelNames))
 		for i, labelName := range q.LabelNames {
 			labels[i] = castString(colData[columnIndexes[labelName]])
+		}
+		labelKey := encodeLabelTuple(labels)
+		if seenScalarLabels != nil {
+			if _, dup := seenScalarLabels[labelKey]; dup {
+				q.err = fmt.Errorf("query [%s] duplicate label set %v for metric %s.%s", q.Name, labels, q.Name, firstScalarMetric)
+				return
+			}
+			seenScalarLabels[labelKey] = struct{}{}
 		}
 
 		// get metrics, warn if column not exist
@@ -375,7 +399,6 @@ func (q *Collector) executeContext(ctx context.Context) {
 						groups = make(map[string]*histogramAccumulator)
 						histograms[metricName] = groups
 					}
-					labelKey := encodeLabelTuple(labels)
 					accumulator := groups[labelKey]
 					if accumulator == nil {
 						accumulator = &histogramAccumulator{
@@ -572,11 +595,25 @@ func histogramHelp(description, component string) string {
 // cacheExpired report whether this instance needs actual execution
 // Note you have to use Server.scrapeBegin as "now", and set that timestamp as
 func (q *Collector) cacheExpired() bool {
-	return q.Server.scrapeBegin.Sub(q.lastScrape) > time.Duration(q.TTL*float64(time.Second))
+	if q.TTL <= 0 || q.lastScrape.IsZero() {
+		return true
+	}
+	now := q.Server.scrapeBegin
+	if now.IsZero() {
+		now = q.scrapeBegin
+	}
+	return now.Sub(q.lastScrape) > time.Duration(q.TTL*float64(time.Second))
 }
 
 func (q *Collector) cacheTTL() float64 {
-	return q.TTL - q.Server.scrapeBegin.Sub(q.lastScrape).Seconds()
+	if q.TTL <= 0 || q.lastScrape.IsZero() {
+		return 0
+	}
+	now := q.Server.scrapeBegin
+	if now.IsZero() {
+		now = q.scrapeBegin
+	}
+	return q.TTL - now.Sub(q.lastScrape).Seconds()
 }
 
 // sendMetrics will send cached result to ch

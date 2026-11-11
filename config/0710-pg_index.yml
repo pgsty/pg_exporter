@@ -14,7 +14,7 @@ pg_index:
 
   ttl: 10
   timeout: 1
-  min_version: 090400
+  min_version: 90400
   metrics:
     - datname:             { usage: LABEL    ,description: "Database name of this index" }
     - idxname:             { usage: LABEL    ,description: "Name of this index (full-qualified schema name)" }

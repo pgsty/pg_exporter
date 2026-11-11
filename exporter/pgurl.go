@@ -80,6 +80,17 @@ func RetrievePGURL() (res string) {
 	return defaultPGURL
 }
 
+// ensureURLAuthorityPath preserves the "//" authority prefix when serializing a
+// hostless, userless, pathless PostgreSQL URI (e.g. "postgresql://?host=/tmp").
+// Go's net/url omits "//" when Host, User, and Path are all empty, producing
+// "postgresql:?...", which lib/pq rejects. Setting Path="/" yields
+// "postgresql:///?..." while keeping Database="" in lib/pq.
+func ensureURLAuthorityPath(u *url.URL) {
+	if u.Host == "" && u.User == nil && u.Path == "" {
+		u.Path = "/"
+	}
+}
+
 // ProcessPGURL will fix URL with default options.
 //
 // Design decision:
@@ -98,6 +109,7 @@ func ProcessPGURL(pgurl string) string {
 	if sslmode := qs.Get(`sslmode`); sslmode == "" {
 		qs.Set(`sslmode`, `disable`)
 	}
+	ensureURLAuthorityPath(u)
 	u.RawQuery = qs.Encode()
 	return u.String()
 }
@@ -114,13 +126,14 @@ func ShadowPGURL(pgurl string) string {
 	// 2. The password is in the format postgresql://<user>:<pass>@localhost:5432/postgres?sslmode=disable
 
 	for k, values := range qs {
-		if strings.EqualFold(k, "password") {
+		if strings.EqualFold(k, "password") || strings.EqualFold(k, "sslpassword") {
 			for i := range values {
 				values[i] = "xxxxx"
 			}
 			qs[k] = values
 		}
 	}
+	ensureURLAuthorityPath(parsedURL)
 	parsedURL.RawQuery = qs.Encode()
 	return parsedURL.Redacted()
 }
@@ -144,6 +157,7 @@ func ReplaceDatname(pgurl, datname string) string {
 	// Conflicting query parameters can override the path in lib/pq.
 	qs.Del("dbname")
 	qs.Del("database")
+	qs.Del("service")
 	u.RawQuery = qs.Encode()
 	u.Path = "/" + datname
 	return u.String()

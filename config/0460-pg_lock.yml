@@ -9,7 +9,7 @@ pg_lock:
       FROM (SELECT d.oid AS database, d.datname, l.mode FROM pg_database d, unnest(ARRAY ['AccessShareLock','RowShareLock','RowExclusiveLock','ShareUpdateExclusiveLock', 'ShareLock','ShareRowExclusiveLock','ExclusiveLock','AccessExclusiveLock']) l(mode) WHERE d.datallowconn AND NOT d.datistemplate) base
       LEFT JOIN (SELECT database, mode, count(*) AS count FROM pg_locks WHERE database IS NOT NULL GROUP BY 1, 2) cnt USING (database, mode);
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - datname: { usage: LABEL ,description: "Name of the database this backend is connected to" }

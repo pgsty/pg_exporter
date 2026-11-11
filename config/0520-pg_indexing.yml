@@ -21,9 +21,9 @@ pg_indexing:
     - datname:     { usage: LABEL ,description: "Name of the database" }
     - pid:         { usage: LABEL ,description: "Process id of indexing table" }
     - relname:     { usage: LABEL ,description: "Relation name of indexed table" }
-    - blocks:      { usage: GAUGE ,description: "Percent of blocks been proceeded" }
-    - tuples:      { usage: GAUGE ,description: "Percent of tuples been proceeded" }
-    - partitions:  { usage: GAUGE ,description: "Percent of partitions been proceeded" }
-    - lockers:     { usage: GAUGE ,description: "Percent of lockers been proceeded" }
+    - blocks:      { usage: GAUGE ,description: "Fraction of blocks processed (0 to 1)" }
+    - tuples:      { usage: GAUGE ,description: "Fraction of tuples processed (0 to 1)" }
+    - partitions:  { usage: GAUGE ,description: "Fraction of partitions processed (0 to 1)" }
+    - lockers:     { usage: GAUGE ,description: "Fraction of lockers processed (0 to 1)" }
 
 

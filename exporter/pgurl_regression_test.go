@@ -107,3 +107,55 @@ func TestShadowPGURLInvalidInputDoesNotLeak(t *testing.T) {
 		}
 	}
 }
+
+func TestHostlessPGURLPreservesAuthorityForDriver(t *testing.T) {
+	for _, tc := range []struct {
+		input   string
+		wantDB  string
+		wantHost string
+	}{
+		{input: "postgresql://", wantDB: ""},
+		{input: "postgres://", wantDB: ""},
+		{input: "postgresql://?host=/var/run/postgresql", wantDB: "", wantHost: "/var/run/postgresql"},
+		{input: "postgresql://monitor@?host=/tmp", wantDB: "", wantHost: "/tmp"},
+		{input: "postgresql://?dbname=pgbouncer", wantDB: "pgbouncer"},
+		{input: "postgresql://?host=/tmp&sslpassword=keysecret", wantDB: "", wantHost: "/tmp"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			processed := ProcessPGURL(tc.input)
+			if !strings.HasPrefix(processed, "postgres://") && !strings.HasPrefix(processed, "postgresql://") {
+				t.Fatalf("ProcessPGURL(%q) lost URI authority prefix: %q", tc.input, processed)
+			}
+			cfg, err := pq.NewConfig(processed)
+			if err != nil {
+				t.Fatalf("pq.NewConfig(%q) failed: %v", processed, err)
+			}
+			if cfg.Database != tc.wantDB {
+				t.Fatalf("Database = %q, want %q", cfg.Database, tc.wantDB)
+			}
+			if tc.wantHost != "" && cfg.Host != tc.wantHost {
+				t.Fatalf("Host = %q, want %q", cfg.Host, tc.wantHost)
+			}
+
+			shadowed := ShadowPGURL(processed)
+			if strings.Contains(shadowed, "keysecret") {
+				t.Fatalf("ShadowPGURL leaked sslpassword: %q", shadowed)
+			}
+			if !strings.HasPrefix(shadowed, "postgres://") && !strings.HasPrefix(shadowed, "postgresql://") {
+				t.Fatalf("ShadowPGURL(%q) lost URI authority prefix: %q", processed, shadowed)
+			}
+
+			replaced := ReplaceDatname(processed + "&service=prod", "appdb")
+			repCfg, err := pq.NewConfig(replaced)
+			if err != nil {
+				t.Fatalf("pq.NewConfig(ReplaceDatname) failed: %v", err)
+			}
+			if repCfg.Database != "appdb" {
+				t.Fatalf("ReplaceDatname Database = %q, want appdb", repCfg.Database)
+			}
+			if strings.Contains(replaced, "service=") {
+				t.Fatalf("ReplaceDatname did not strip service parameter: %q", replaced)
+			}
+		})
+	}
+}

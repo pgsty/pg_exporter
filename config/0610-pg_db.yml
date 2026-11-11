@@ -160,7 +160,7 @@ pg_db_10:
       numbackends,xact_commit,xact_rollback,xact_rollback + xact_commit AS xact_total, blks_read,blks_hit,blks_read + blks_hit AS blks_access,tup_returned,tup_fetched,tup_inserted,tup_updated,tup_deleted,tup_inserted + tup_updated + tup_deleted AS tup_modified,
       conflicts,temp_files,temp_bytes,deadlocks,blk_read_time,blk_write_time, extract(EPOCH FROM stats_reset) AS reset_time FROM pg_database d JOIN pg_stat_database sd ON d.oid = sd.datid;
   ttl: 10
-  min_version: 090200
+  min_version: 90200
   max_version: 120000
   tags: [ cluster ]
   metrics:

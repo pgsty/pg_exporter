@@ -1,10 +1,10 @@
 #==============================================================#
 # File      :   Makefile
-# Mtime     :   2025-08-14
+# Mtime     :   2026-11-11
 # License   :   Apache-2.0 @ https://github.com/pgsty/pg_exporter
 # Copyright :   2018-2026  Ruohang Feng / Vonng (rh@vonng.com)
 #==============================================================#
-VERSION      ?= v1.6.0
+VERSION      ?= v1.6.1
 DOCKER_REPO  ?= pgsty/pg_exporter
 BUILD_DATE   := $(shell date '+%Y%m%d%H%M%S')
 GIT_BRANCH   := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
@@ -155,6 +155,10 @@ docker-build:
 	docker build -f Dockerfile \
 		--build-arg GOPROXY=$${GOPROXY:-https://proxy.golang.org,direct} \
 		--build-arg GOSUMDB=$${GOSUMDB:-sum.golang.org} \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg BRANCH=$(GIT_BRANCH) \
+		--build-arg REVISION=$(GIT_REVISION) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) \
 		-t $(DOCKER_REPO):$(VERSION)-dev \
 		-t $(DOCKER_REPO):dev .
 

@@ -6,9 +6,9 @@ pg_table_18:
   desc: PostgreSQL table metrics v18+
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.n_ins_since_vacuum,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,psut.last_seq_scan,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psut.total_vacuum_time AS vacuum_time,psut.total_autovacuum_time AS autovacuum_time,psut.total_analyze_time AS analyze_time,psut.total_autoanalyze_time AS autoanalyze_time,
@@ -44,10 +44,10 @@ pg_table_18:
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
     - n_tup_newpage_upd:   { usage: COUNTER  ,default: 0  ,description: "Number of rows updated where the successor version goes onto a new heap page" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
-    - n_ins_since_vacuum:  { usage: GAUGE                 ,description: "Estimated number of rows inserted since this table was last vacuumed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_ins_since_vacuum:  { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows inserted since this table was last vacuumed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -75,9 +75,9 @@ pg_table_16:
   desc: PostgreSQL table metrics 16-17
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.n_ins_since_vacuum,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,psut.last_seq_scan,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psio.heap_blks_read,psio.heap_blks_hit,psio.idx_blks_read,psio.idx_blks_hit,psio.toast_blks_read,psio.toast_blks_hit,psio.tidx_blks_read,psio.tidx_blks_hit
@@ -113,10 +113,10 @@ pg_table_16:
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
     - n_tup_newpage_upd:   { usage: COUNTER  ,default: 0  ,description: "Number of rows updated where the successor version goes onto a new heap page" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
-    - n_ins_since_vacuum:  { usage: GAUGE                 ,description: "Estimated number of rows inserted since this table was last vacuumed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_ins_since_vacuum:  { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows inserted since this table was last vacuumed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -140,9 +140,9 @@ pg_table_13:
   desc: PostgreSQL table metrics 13-15 (with n_ins_since_vacuum)
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.n_ins_since_vacuum,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psio.heap_blks_read,psio.heap_blks_hit,psio.idx_blks_read,psio.idx_blks_hit,psio.toast_blks_read,psio.toast_blks_hit,psio.tidx_blks_read,psio.tidx_blks_hit
@@ -177,10 +177,10 @@ pg_table_13:
     - n_tup_del:           { usage: COUNTER  ,default: 0  ,description: "Number of rows deleted" }
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
-    - n_ins_since_vacuum:  { usage: GAUGE                 ,description: "Estimated number of rows inserted since this table was last vacuumed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_ins_since_vacuum:  { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows inserted since this table was last vacuumed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -203,9 +203,9 @@ pg_table_10:
   desc: PostgreSQL table metrics 9.4-12
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psio.heap_blks_read,psio.heap_blks_hit,psio.idx_blks_read,psio.idx_blks_hit,psio.toast_blks_read,psio.toast_blks_hit,psio.tidx_blks_read,psio.tidx_blks_hit
@@ -217,7 +217,7 @@ pg_table_10:
 
   ttl: 10
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   max_version: 130000
   metrics:
     - datname:             { usage: LABEL                 ,description: "Database name of this table" }
@@ -240,9 +240,9 @@ pg_table_10:
     - n_tup_del:           { usage: COUNTER  ,default: 0  ,description: "Number of rows deleted" }
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }

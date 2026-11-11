@@ -12,7 +12,7 @@ pg_archiver:
     FROM pg_stat_archiver;
 
   ttl: 60
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - finish_count:        { usage: COUNTER ,description: "Number of WAL files that have been successfully archived" }

@@ -25,13 +25,19 @@ RUN \
   CGO_ENABLED=0 GOOS=linux go mod download
 
 COPY . /build
+ARG VERSION=v1.6.1
+ARG BRANCH=main
+ARG REVISION=HEAD
+ARG BUILD_DATE=unknown
 RUN \
   --mount=type=cache,target=/go/pkg/mod \
   --mount=type=cache,target=/root/.cache/go-build \
-  CGO_ENABLED=0 GOOS=linux go build -a -o /pg_exporter .
+  CGO_ENABLED=0 GOOS=linux go build -a \
+    -ldflags="-s -w -extldflags '-static' -X 'pg_exporter/exporter.Version=${VERSION}' -X 'pg_exporter/exporter.Branch=${BRANCH}' -X 'pg_exporter/exporter.Revision=${REVISION}' -X 'pg_exporter/exporter.BuildDate=${BUILD_DATE}'" \
+    -o /pg_exporter .
 
 FROM scratch
-LABEL org.opencontainers.image.authors="Ruohang Feng <rh@vonng.com>, Craig Ringer <craig.ringer@enterprisedb.com>" \
+LABEL org.opencontainers.image.authors="Ruohang Feng <rh@vonng.com>" \
       org.opencontainers.image.url="https://github.com/pgsty/pg_exporter" \
       org.opencontainers.image.source="https://github.com/pgsty/pg_exporter" \
       org.opencontainers.image.licenses="Apache-2.0" \

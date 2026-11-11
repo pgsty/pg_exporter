@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -50,6 +51,9 @@ func (c *Column) parseNumbers() error {
 		if err != nil {
 			return fmt.Errorf("invalid scale %q: %w", c.Scale, err)
 		}
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return fmt.Errorf("invalid scale %q: must be finite", c.Scale)
+		}
 		c.scaleFactor = f
 		c.hasScale = true
 	}
@@ -57,6 +61,9 @@ func (c *Column) parseNumbers() error {
 		f, err := strconv.ParseFloat(c.Default, 64)
 		if err != nil {
 			return fmt.Errorf("invalid default %q: %w", c.Default, err)
+		}
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return fmt.Errorf("invalid default %q: must be finite", c.Default)
 		}
 		c.defaultValue = f
 		c.hasDefault = true

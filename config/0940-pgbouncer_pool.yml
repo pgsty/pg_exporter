@@ -18,7 +18,7 @@ pgbouncer_pool_124:
     - cl_waiting_cancel_req: { usage: GAUGE, rename: cancel_clients,         description: "Client connections that have not forwarded query cancellations to the server yet." }
     - sv_active:             { usage: GAUGE, rename: active_servers,         description: "Server connections that are linked to a client" }
     - sv_active_cancel:      { usage: GAUGE, rename: active_cancel_servers,  description: "Server connections that are currently forwarding a cancel request" }
-    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "cancel requests have completed that were sent to cancel a query on this server" }
+    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "Server connections waiting for in-flight cancel requests to complete before becoming idle" }
     - sv_idle:               { usage: GAUGE, rename: idle_servers,           description: "Server connections that are unused and immediately usable for client queries" }
     - sv_used:               { usage: GAUGE, rename: used_servers,           description: "Server connections that have been idle for more than server_check_delay (means have to run check query)" }
     - sv_tested:             { usage: GAUGE, rename: tested_servers,         description: "Server connections that are currently running reset or check query" }
@@ -45,7 +45,7 @@ pgbouncer_pool_118:
     - cl_waiting_cancel_req: { usage: GAUGE, rename: cancel_clients,         description: "Client connections that have not forwarded query cancellations to the server yet." }
     - sv_active:             { usage: GAUGE, rename: active_servers,         description: "Server connections that are linked to a client" }
     - sv_active_cancel:      { usage: GAUGE, rename: active_cancel_servers,  description: "Server connections that are currently forwarding a cancel request" }
-    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "cancel requests have completed that were sent to cancel a query on this server" }
+    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "Server connections waiting for in-flight cancel requests to complete before becoming idle" }
     - sv_idle:               { usage: GAUGE, rename: idle_servers,           description: "Server connections that are unused and immediately usable for client queries" }
     - sv_used:               { usage: GAUGE, rename: used_servers,           description: "Server connections that have been idle for more than server_check_delay (means have to run check query)" }
     - sv_tested:             { usage: GAUGE, rename: tested_servers,         description: "Server connections that are currently running reset or check query" }

@@ -59,7 +59,7 @@ pg_meta_10:
       'N/A'                                               AS primary_conninfo,
       1                                                   AS info
   ttl: 10
-  min_version: 090600
+  min_version: 90600
   max_version: 130000
   tags: [ cluster ]
   metrics:

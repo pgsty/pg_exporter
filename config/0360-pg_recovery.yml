@@ -12,7 +12,7 @@ pg_recovery:
       end_of_backup_record_required AS require_record
     FROM pg_control_recovery();
   ttl: 10
-  min_version: 090600
+  min_version: 90600
   tags: [ cluster, replica ]
   metrics:
     - min_timeline:      { usage: COUNTER ,description: "Min recovery ending loc's timeline" }

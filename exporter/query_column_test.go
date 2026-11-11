@@ -119,4 +119,26 @@ func TestQueryHelpersAndRender(t *testing.T) {
 	if !strings.Contains(html, "<h2>sample</h2>") {
 		t.Fatalf("HTML output unexpected: %s", html)
 	}
+
+	q.PredicateQueries = []PredicateQuery{
+		{Name: "p_uncached", SQL: "SELECT true", TTL: 0},
+		{Name: "p_cached", SQL: "SELECT true", TTL: 15.5},
+	}
+	htmlWithPred := q.HTML()
+	if !strings.Contains(htmlWithPred, "<i>not cached</i>") || !strings.Contains(htmlWithPred, "15.5s") {
+		t.Fatalf("HTML predicate rendering failed: %s", htmlWithPred)
+	}
+}
+
+func TestColumnParseNumbersRejectsNonFinite(t *testing.T) {
+	for _, bad := range []string{"NaN", "+Inf", "-Inf", "Inf"} {
+		colScale := &Column{Name: "v", Usage: GAUGE, Scale: bad}
+		if err := colScale.parseNumbers(); err == nil {
+			t.Fatalf("expected non-finite scale %q to fail validation", bad)
+		}
+		colDefault := &Column{Name: "v", Usage: GAUGE, Default: bad}
+		if err := colDefault.parseNumbers(); err == nil {
+			t.Fatalf("expected non-finite default %q to fail validation", bad)
+		}
+	}
 }

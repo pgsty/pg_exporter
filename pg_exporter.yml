@@ -1,9 +1,9 @@
 #==============================================================#
 # Desc      :   pg_exporter metrics collector definition
-# Ver       :   PostgreSQL 10 ~ 19+ and pgbouncer 1.9~1.26+
+# Ver       :   PostgreSQL 10 ~ 19+ and pgbouncer 1.8~1.26+
 # Ctime     :   2019-12-09
-# Mtime     :   2026-07-11
-# Homepage  :   https://pigsty.io/docs/pg_exporter
+# Mtime     :   2026-11-11
+# Homepage  :   https://exp.pgsty.com
 # Author    :   Ruohang Feng (rh@vonng.com)
 # License   :   Apache-2.0 @ https://github.com/pgsty/pg_exporter
 # Copyright :   2018-2026  Ruohang Feng / Vonng (rh@vonng.com)
@@ -204,19 +204,19 @@
 # version is less than `min_version`, or higher than `max_version`, the collector will not be installed.
 # These two parameters are using PostgreSQL server version number format, which is a 6-digit integer
 # format as <major:2 digit><minor:2 digit>:<release: 2 digit>.
-# For example, 090600 stands for 9.6, and 120100 stands for 12.1
+# For example, 90600 stands for 9.6, and 120001 stands for 12.1
 # And beware that version compatibility range is left-inclusive right exclusive: [min, max), set to zero or
 # leaving blank will affect as -inf or +inf
 
 #==============================================================#
 # 8. Fatality
 #==============================================================#
-# If a collector is marked with `fatal` falls, the entire scrape operation will be marked as fail and key metrics
+# If a collector is marked with `fatal` fails, the entire scrape operation will be marked as fail and key metrics
 # `pg_up` / `pgbouncer_up` will be reset to 0. It is always a good practice to set up AT LEAST ONE fatal
 # collector for pg_exporter. `pg.pg_primary_only` and `pgbouncer_list` are the default fatal collector.
 #
 # If a collector without `fatal` flag fails, it will increase global fail counters. But the scrape operation
-# will carry on. The entire scrape result will not be marked as faile, thus will not affect the `<xx>_up` metric.
+# will carry on. The entire scrape result will not be marked as failed, thus will not affect the `<xx>_up` metric.
 
 #==============================================================#
 # 9. Skip
@@ -399,7 +399,7 @@ pg_meta_10:
       'N/A'                                               AS primary_conninfo,
       1                                                   AS info
   ttl: 10
-  min_version: 090600
+  min_version: 90600
   max_version: 130000
   tags: [ cluster ]
   metrics:
@@ -609,7 +609,7 @@ pg_sync_standby:
   query: |
     SELECT CASE WHEN names <> '' THEN names ELSE '<null>' END AS names, CASE WHEN names <> '' THEN 1 ELSE 0 END AS enabled FROM (SELECT current_setting('synchronous_standby_names') AS names) n;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - names:             { usage: LABEL ,description: "List of standby servers that can support synchronous replication, <null> if not enabled" }
@@ -625,7 +625,7 @@ pg_downstream:
   query: |
     SELECT l.state, coalesce(count, 0 ) AS count FROM unnest(ARRAY ['streaming','startup','catchup', 'backup', 'stopping']) l(state) LEFT JOIN (SELECT state, count(*) AS count FROM pg_stat_replication GROUP BY state)r ON l.state =  r.state;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - state:             { usage: LABEL ,description: "Replication client state, could be one of startup|catchup|streaming|backup|stopping" }
@@ -1117,7 +1117,7 @@ pg_origin:
   desc: PostgreSQL replay state (approximate) for a certain origin
   query: SELECT roname, remote_lsn - '0/0' AS remote_lsn, local_lsn - '0/0' AS local_lsn FROM pg_replication_origin o LEFT JOIN pg_replication_origin_status os ON o.roident = os.local_id;
   ttl: 10
-  min_version: 090500
+  min_version: 90500
   skip: true
   tags: [ cluster ]
   metrics:
@@ -1228,7 +1228,7 @@ pg_archiver:
     FROM pg_stat_archiver;
 
   ttl: 60
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - finish_count:        { usage: COUNTER ,description: "Number of WAL files that have been successfully archived" }
@@ -1260,7 +1260,7 @@ pg_bgwriter_10:
   desc: "PostgreSQL background writer metrics (PG 9.4-16)"
   query: SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time, checkpoint_sync_time, buffers_checkpoint, buffers_clean, buffers_backend, maxwritten_clean, buffers_backend_fsync, buffers_alloc, extract(EPOCH FROM stats_reset) AS reset_time FROM pg_stat_bgwriter;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   max_version: 170000
   tags: [ cluster ]
   metrics:
@@ -1295,7 +1295,7 @@ pg_checkpointer_18:
     - restartpoints_done:    { usage: COUNTER                ,description: "Number of restartpoints that have been performed" }
     - write_time:            { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in seconds" }
     - sync_time:             { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in seconds" }
-    - buffers_written:       { usage: COUNTER                ,description: "Number of buffers written during checkpoints and restartpoints" }
+    - buffers_written:       { usage: COUNTER                ,description: "Number of shared buffers written during checkpoints and restartpoints" }
     - slru_written:          { usage: COUNTER                ,description: "Number of SLRU buffers written during checkpoints and restartpoints" }
     - reset_time:            { usage: GAUGE                  ,description: "Time at which checkpointer statistics were last reset" }
 
@@ -1309,9 +1309,9 @@ pg_checkpointer_17:
   tags: [ cluster ]
   metrics:
     - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints due to timeout, including completed and skipped checkpoints" }
-    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints that have been performed" }
-    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it" }
-    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints" }
+    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints, including completed and skipped checkpoints" }
+    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it, including completed and skipped restartpoints" }
+    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints, including completed and skipped restartpoints" }
     - restartpoints_done:    { usage: COUNTER                ,description: "Number of restartpoints that have been performed" }
     - write_time:            { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in seconds" }
     - sync_time:             { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in seconds" }
@@ -1323,7 +1323,7 @@ pg_checkpointer_10:
   desc: "PostgreSQL checkpointer stat metrics for pg 9.4-16"
   query: SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time, checkpoint_sync_time, buffers_checkpoint, extract(EPOCH FROM stats_reset) AS reset_time FROM pg_stat_bgwriter;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   max_version: 170000
   tags: [ cluster ]
   metrics:
@@ -1343,7 +1343,7 @@ pg_ssl:
   query: |
     SELECT count(*) FILTER (WHERE ssl) AS enabled, count(*) FILTER ( WHERE NOT ssl) AS disabled FROM pg_stat_ssl;
   ttl: 10
-  min_version: 090500
+  min_version: 90500
   tags: [ cluster ]
   metrics:
     - enabled:            { usage: GAUGE   ,description: "Number of client connection that use ssl" }
@@ -1436,7 +1436,7 @@ pg_recovery:
       end_of_backup_record_required AS require_record
     FROM pg_control_recovery();
   ttl: 10
-  min_version: 090600
+  min_version: 90600
   tags: [ cluster, replica ]
   metrics:
     - min_timeline:      { usage: COUNTER ,description: "Min recovery ending loc's timeline" }
@@ -1590,20 +1590,20 @@ pg_activity:
   name: pg_activity
   desc: PostgreSQL backend activity group by database and state
   query: |-
-    SELECT datname, state, coalesce(count, 0) AS count, coalesce(max_duration, 0) AS max_duration, coalesce(max_tx_duration, 0) AS max_tx_duration, coalesce(max_conn_duration, 0) AS max_conn_duration FROM
+    SELECT datname, state, coalesce(count, 0) AS count, coalesce(greatest(max_duration, 0), 0) AS max_duration, coalesce(greatest(max_tx_duration, 0), 0) AS max_tx_duration, coalesce(greatest(max_conn_duration, 0), 0) AS max_conn_duration FROM
         (SELECT d.datname, a.state FROM pg_database d, unnest(ARRAY ['active','idle','idle in transaction','idle in transaction (aborted)','fastpath function call','disabled']) a(state) WHERE d.datallowconn AND NOT d.datistemplate) base
           LEFT JOIN (SELECT datname, state, count(*) AS count, max(extract(epoch from now() - state_change)) AS max_duration, max(extract(epoch from now() - xact_start))
           AS max_tx_duration, max(extract(epoch from now() - backend_start)) AS max_conn_duration FROM pg_stat_activity WHERE pid <> pg_backend_pid() GROUP BY 1,2) data USING (datname,state);
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - datname:           { usage: LABEL ,description: "Name of the database this backend is connected to" }
     - state:             { usage: LABEL ,description: "Current overall state of this backend." }
     - count:             { usage: GAUGE ,description: "Count of connection among (datname,state)" }
     - max_duration:      { usage: GAUGE ,description: "Max duration since last state change among (datname, state)" }
-    - max_tx_duration:   { usage: GAUGE ,description: "Max transaction duration since state change among (datname, state)" }
-    - max_conn_duration: { usage: GAUGE ,description: "Max backend session duration since state change among (datname, state)" }
+    - max_tx_duration:   { usage: GAUGE ,description: "Max transaction duration since transaction start among (datname, state)" }
+    - max_conn_duration: { usage: GAUGE ,description: "Max backend session duration since backend start among (datname, state)" }
 
 
 #==============================================================#
@@ -1615,7 +1615,7 @@ pg_wait:
   query: |
     SELECT coalesce(datname, '_system') AS datname, coalesce(wait_event_type, 'Running') AS event, count(*) AS count FROM pg_stat_activity GROUP BY 1, 2;
   ttl: 10
-  min_version: 090600
+  min_version: 90600
   tags: [ cluster ]
   metrics:
     - datname: { usage: LABEL ,description: "Name of the database, _system for global process" }
@@ -1646,7 +1646,7 @@ pg_xact:
   desc: PostgreSQL transaction identifier metrics
   query: WITH snap(v) AS (SELECT txid_current_snapshot()), xset(v) AS  (SELECT txid_snapshot_xip(v) FROM snap), xnum(v) AS (SELECT count(*) from xset), xmin(v) AS (SELECT txid_snapshot_xmin(v) FROM snap), xmax(v) AS (SELECT txid_snapshot_xmax(v) FROM snap) SELECT xmin.v AS xmin, xmax.v AS xmax, xnum.v AS xnum FROM xmin, xmax, xnum;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - xmin: { usage: COUNTER ,description: "Earliest txid that is still active" }
@@ -1691,7 +1691,7 @@ pg_lock:
       FROM (SELECT d.oid AS database, d.datname, l.mode FROM pg_database d, unnest(ARRAY ['AccessShareLock','RowShareLock','RowExclusiveLock','ShareUpdateExclusiveLock', 'ShareLock','ShareRowExclusiveLock','ExclusiveLock','AccessExclusiveLock']) l(mode) WHERE d.datallowconn AND NOT d.datistemplate) base
       LEFT JOIN (SELECT database, mode, count(*) AS count FROM pg_locks WHERE database IS NOT NULL GROUP BY 1, 2) cnt USING (database, mode);
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   tags: [ cluster ]
   metrics:
     - datname: { usage: LABEL ,description: "Name of the database this backend is connected to" }
@@ -1779,7 +1779,7 @@ pg_query_10:
 
   ttl: 10
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   max_version: 130000
   tags: [ cluster, "extension:pg_stat_statements" ]
   metrics:
@@ -1888,10 +1888,10 @@ pg_indexing:
     - datname:     { usage: LABEL ,description: "Name of the database" }
     - pid:         { usage: LABEL ,description: "Process id of indexing table" }
     - relname:     { usage: LABEL ,description: "Relation name of indexed table" }
-    - blocks:      { usage: GAUGE ,description: "Percent of blocks been proceeded" }
-    - tuples:      { usage: GAUGE ,description: "Percent of tuples been proceeded" }
-    - partitions:  { usage: GAUGE ,description: "Percent of partitions been proceeded" }
-    - lockers:     { usage: GAUGE ,description: "Percent of lockers been proceeded" }
+    - blocks:      { usage: GAUGE ,description: "Fraction of blocks processed (0 to 1)" }
+    - tuples:      { usage: GAUGE ,description: "Fraction of tuples processed (0 to 1)" }
+    - partitions:  { usage: GAUGE ,description: "Fraction of partitions processed (0 to 1)" }
+    - lockers:     { usage: GAUGE ,description: "Fraction of lockers processed (0 to 1)" }
 
 
 #==============================================================#
@@ -2093,7 +2093,7 @@ pg_db_10:
       numbackends,xact_commit,xact_rollback,xact_rollback + xact_commit AS xact_total, blks_read,blks_hit,blks_read + blks_hit AS blks_access,tup_returned,tup_fetched,tup_inserted,tup_updated,tup_deleted,tup_inserted + tup_updated + tup_deleted AS tup_modified,
       conflicts,temp_files,temp_bytes,deadlocks,blk_read_time,blk_write_time, extract(EPOCH FROM stats_reset) AS reset_time FROM pg_database d JOIN pg_stat_database sd ON d.oid = sd.datid;
   ttl: 10
-  min_version: 090200
+  min_version: 90200
   max_version: 120000
   tags: [ cluster ]
   metrics:
@@ -2246,9 +2246,9 @@ pg_table_18:
   desc: PostgreSQL table metrics v18+
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.n_ins_since_vacuum,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,psut.last_seq_scan,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psut.total_vacuum_time AS vacuum_time,psut.total_autovacuum_time AS autovacuum_time,psut.total_analyze_time AS analyze_time,psut.total_autoanalyze_time AS autoanalyze_time,
@@ -2284,10 +2284,10 @@ pg_table_18:
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
     - n_tup_newpage_upd:   { usage: COUNTER  ,default: 0  ,description: "Number of rows updated where the successor version goes onto a new heap page" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
-    - n_ins_since_vacuum:  { usage: GAUGE                 ,description: "Estimated number of rows inserted since this table was last vacuumed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_ins_since_vacuum:  { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows inserted since this table was last vacuumed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -2315,9 +2315,9 @@ pg_table_16:
   desc: PostgreSQL table metrics 16-17
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_tup_newpage_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.n_ins_since_vacuum,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,psut.last_seq_scan,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psio.heap_blks_read,psio.heap_blks_hit,psio.idx_blks_read,psio.idx_blks_hit,psio.toast_blks_read,psio.toast_blks_hit,psio.tidx_blks_read,psio.tidx_blks_hit
@@ -2353,10 +2353,10 @@ pg_table_16:
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
     - n_tup_newpage_upd:   { usage: COUNTER  ,default: 0  ,description: "Number of rows updated where the successor version goes onto a new heap page" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
-    - n_ins_since_vacuum:  { usage: GAUGE                 ,description: "Estimated number of rows inserted since this table was last vacuumed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_ins_since_vacuum:  { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows inserted since this table was last vacuumed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -2380,9 +2380,9 @@ pg_table_13:
   desc: PostgreSQL table metrics 13-15 (with n_ins_since_vacuum)
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.n_ins_since_vacuum,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psio.heap_blks_read,psio.heap_blks_hit,psio.idx_blks_read,psio.idx_blks_hit,psio.toast_blks_read,psio.toast_blks_hit,psio.tidx_blks_read,psio.tidx_blks_hit
@@ -2417,10 +2417,10 @@ pg_table_13:
     - n_tup_del:           { usage: COUNTER  ,default: 0  ,description: "Number of rows deleted" }
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
-    - n_ins_since_vacuum:  { usage: GAUGE                 ,description: "Estimated number of rows inserted since this table was last vacuumed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_ins_since_vacuum:  { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows inserted since this table was last vacuumed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -2443,9 +2443,9 @@ pg_table_10:
   desc: PostgreSQL table metrics 9.4-12
   query: |-
     SELECT CURRENT_CATALOG AS datname, nsp.nspname || '.' || c.relname AS relname, c.oid AS relid, ascii(c.relkind) AS kind,
-       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, age(c.relfrozenxid) AS age, c.relnatts AS ncols,
-       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,psut.seq_scan + psut.idx_scan AS tbl_scan, psut.seq_tup_read + psut.idx_tup_fetch AS tup_read,
-       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(psut.n_tup_ins + psut.n_tup_upd + psut.n_tup_del) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
+       c.relpages AS pages, c.reltuples AS tuples, c.relfrozenxid AS frozenxid, CASE WHEN c.relfrozenxid = '0'::xid THEN 0 ELSE age(c.relfrozenxid) END AS age, c.relnatts AS ncols,
+       psut.seq_scan,psut.seq_tup_read,psut.idx_scan,psut.idx_tup_fetch,COALESCE(psut.seq_scan, 0) + COALESCE(psut.idx_scan, 0) AS tbl_scan, COALESCE(psut.seq_tup_read, 0) + COALESCE(psut.idx_tup_fetch, 0) AS tup_read,
+       psut.n_tup_ins,psut.n_tup_upd,psut.n_tup_del,(COALESCE(psut.n_tup_ins, 0) + COALESCE(psut.n_tup_upd, 0) + COALESCE(psut.n_tup_del, 0)) AS n_tup_mod,psut.n_tup_hot_upd,psut.n_live_tup,psut.n_dead_tup,
        psut.n_mod_since_analyze,psut.last_vacuum,psut.last_autovacuum,psut.last_analyze,psut.last_autoanalyze,
        psut.vacuum_count,psut.autovacuum_count,psut.analyze_count,psut.autoanalyze_count,
        psio.heap_blks_read,psio.heap_blks_hit,psio.idx_blks_read,psio.idx_blks_hit,psio.toast_blks_read,psio.toast_blks_hit,psio.tidx_blks_read,psio.tidx_blks_hit
@@ -2457,7 +2457,7 @@ pg_table_10:
 
   ttl: 10
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   max_version: 130000
   metrics:
     - datname:             { usage: LABEL                 ,description: "Database name of this table" }
@@ -2480,9 +2480,9 @@ pg_table_10:
     - n_tup_del:           { usage: COUNTER  ,default: 0  ,description: "Number of rows deleted" }
     - n_tup_mod:           { usage: COUNTER  ,default: 0  ,description: "Number of rows modified (insert + update + delete)" }
     - n_tup_hot_upd:       { usage: COUNTER  ,default: 0  ,description: "Number of rows HOT updated (i.e with no separate index update required)" }
-    - n_live_tup:          { usage: GAUGE                 ,description: "Estimated number of live rows" }
-    - n_dead_tup:          { usage: GAUGE                 ,description: "Estimated number of dead rows" }
-    - n_mod_since_analyze: { usage: GAUGE                 ,description: "Estimated number of rows modified since this table was last analyzed" }
+    - n_live_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of live rows" }
+    - n_dead_tup:          { usage: GAUGE    ,default: 0  ,description: "Estimated number of dead rows" }
+    - n_mod_since_analyze: { usage: GAUGE    ,default: 0  ,description: "Estimated number of rows modified since this table was last analyzed" }
     - last_vacuum:         { usage: DISCARD               ,description: "Last time at which this table was manually vacuumed (not counting VACUUM FULL)" }
     - last_autovacuum:     { usage: DISCARD               ,description: "Last time at which this table was vacuumed by the autovacuum daemon" }
     - last_analyze:        { usage: DISCARD               ,description: "Last time at which this table was manually analyzed" }
@@ -2517,7 +2517,7 @@ pg_index:
 
   ttl: 10
   timeout: 1
-  min_version: 090400
+  min_version: 90400
   metrics:
     - datname:             { usage: LABEL    ,description: "Database name of this index" }
     - idxname:             { usage: LABEL    ,description: "Name of this index (full-qualified schema name)" }
@@ -2539,7 +2539,7 @@ pg_func:
   desc: PostgreSQL function metrics
   query: SELECT CURRENT_CATALOG AS datname, schemaname || '.' || funcname AS funcname, sum(calls) AS calls, sum(total_time) AS total_time, sum(self_time) AS self_time FROM pg_stat_user_functions GROUP BY 2 ORDER BY 4 DESC LIMIT 128;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   metrics:
     - datname:             { usage: LABEL    ,description: "Name of belonged database" }
     - funcname:            { usage: LABEL    ,description: "Name of this function, may have multiple override" }
@@ -2573,7 +2573,7 @@ pg_relkind:
   query: SELECT CURRENT_CATALOG AS datname, relkind, count(*) AS count FROM pg_class GROUP BY relkind;
   ttl: 60
   timeout: 1
-  min_version: 090400
+  min_version: 90400
   metrics:
     - datname:             { usage: LABEL    ,description: "Name of database" }
     - relkind:             { usage: LABEL    ,description: "Kind of this relation, could be r,i,S,t,v,m,c,f,p,I" }
@@ -2608,7 +2608,7 @@ pg_table_size:
        pg_indexes_size(rel.oid)              AS indexsize,
        pg_total_relation_size(reltoastrelid) AS toastsize
     FROM pg_namespace nsp JOIN pg_class rel ON nsp.oid = rel.relnamespace
-    WHERE nspname <> ALL(ARRAY['pg_catalog', 'information_schema']) AND rel.relkind = 'r'
+    WHERE nsp.nspname <> ALL(ARRAY['pg_catalog', 'information_schema']) AND nsp.nspname !~ '^pg_(toast|temp)' AND rel.relkind = 'r'
     ORDER BY 3 DESC NULLS LAST LIMIT 256;
 
   ttl: 300
@@ -2618,7 +2618,7 @@ pg_table_size:
     - datname:             { usage: LABEL    ,description: "Database name of this table" }
     - relname:             { usage: LABEL    ,description: "Schema qualified table name" }
     - bytes:               { usage: GAUGE    ,default: 0  ,description: "Total bytes of this table (including toast, index, toast index)" }
-    - relsize:             { usage: GAUGE    ,default: 0  ,description: "Bytes of this table itself (main, vm, fsm)" }
+    - relsize:             { usage: GAUGE    ,default: 0  ,description: "Bytes of the main data fork of this table" }
     - indexsize:           { usage: GAUGE    ,default: 0  ,description: "Bytes of all related indexes of this table" }
     - toastsize:           { usage: GAUGE    ,default: 0  ,description: "Bytes of toast tables of this table" }
 
@@ -2633,7 +2633,7 @@ pg_table_bloat:
   query: SELECT datname, nspname || '.' || relname AS relname, size, ratio FROM pg_table_bloat ORDER BY size DESC LIMIT 64;
   ttl: 300
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   skip: true
   metrics:
     - datname:             { usage: LABEL    ,description: "Database name of this table" }
@@ -2652,7 +2652,7 @@ pg_index_bloat:
   query: SELECT datname, nspname || '.' || relname AS relname, size, ratio FROM pg_index_bloat ORDER BY size DESC LIMIT 64;
   ttl: 300
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   skip: true
   metrics:
     - datname:             { usage: LABEL    ,description: "Database name of this index" }
@@ -2887,7 +2887,7 @@ pgbouncer_pool_124:
     - cl_waiting_cancel_req: { usage: GAUGE, rename: cancel_clients,         description: "Client connections that have not forwarded query cancellations to the server yet." }
     - sv_active:             { usage: GAUGE, rename: active_servers,         description: "Server connections that are linked to a client" }
     - sv_active_cancel:      { usage: GAUGE, rename: active_cancel_servers,  description: "Server connections that are currently forwarding a cancel request" }
-    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "cancel requests have completed that were sent to cancel a query on this server" }
+    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "Server connections waiting for in-flight cancel requests to complete before becoming idle" }
     - sv_idle:               { usage: GAUGE, rename: idle_servers,           description: "Server connections that are unused and immediately usable for client queries" }
     - sv_used:               { usage: GAUGE, rename: used_servers,           description: "Server connections that have been idle for more than server_check_delay (means have to run check query)" }
     - sv_tested:             { usage: GAUGE, rename: tested_servers,         description: "Server connections that are currently running reset or check query" }
@@ -2914,7 +2914,7 @@ pgbouncer_pool_118:
     - cl_waiting_cancel_req: { usage: GAUGE, rename: cancel_clients,         description: "Client connections that have not forwarded query cancellations to the server yet." }
     - sv_active:             { usage: GAUGE, rename: active_servers,         description: "Server connections that are linked to a client" }
     - sv_active_cancel:      { usage: GAUGE, rename: active_cancel_servers,  description: "Server connections that are currently forwarding a cancel request" }
-    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "cancel requests have completed that were sent to cancel a query on this server" }
+    - sv_being_canceled:     { usage: GAUGE, rename: cancel_servers,         description: "Server connections waiting for in-flight cancel requests to complete before becoming idle" }
     - sv_idle:               { usage: GAUGE, rename: idle_servers,           description: "Server connections that are unused and immediately usable for client queries" }
     - sv_used:               { usage: GAUGE, rename: used_servers,           description: "Server connections that have been idle for more than server_check_delay (means have to run check query)" }
     - sv_tested:             { usage: GAUGE, rename: tested_servers,         description: "Server connections that are currently running reset or check query" }
@@ -3000,7 +3000,7 @@ pg_wait_event_1s:
 #==============================================================#
 # 1800 pg_tsdb_hypertable
 #==============================================================#
-# this collector reqires timescaledb extension to be installed
+# this collector requires timescaledb extension to be installed
 pg_tsdb_hypertable:
   name: pg_tsdb_hypertable
   desc: TimescaleDB hypertable overview
@@ -3010,7 +3010,7 @@ pg_tsdb_hypertable:
       format('%I.%I', hypertable_schema, hypertable_name) AS relname,
       num_dimensions AS dimensions, num_chunks AS chunks,
       compression_enabled::BOOLEAN::int AS compressed,
-      hypertable_size(format('"%I"."%I"', hypertable_schema, hypertable_name)::RegClass) AS bytes
+      hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::RegClass) AS bytes
     FROM timescaledb_information.hypertables;
 
   ttl: 60
@@ -3074,7 +3074,7 @@ pg_heartbeat:
     SELECT id AS cluster_name, extract(EPOCH FROM ts) AS ts, lsn, txid FROM monitor.heartbeat;
 
   ttl: 10
-  min_version: 090100
+  min_version: 90100
   tags: [ "dbname:postgres", "schema:monitor" ]
   skip: true
   metrics:

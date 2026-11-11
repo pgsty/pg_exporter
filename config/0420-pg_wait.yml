@@ -7,7 +7,7 @@ pg_wait:
   query: |
     SELECT coalesce(datname, '_system') AS datname, coalesce(wait_event_type, 'Running') AS event, count(*) AS count FROM pg_stat_activity GROUP BY 1, 2;
   ttl: 10
-  min_version: 090600
+  min_version: 90600
   tags: [ cluster ]
   metrics:
     - datname: { usage: LABEL ,description: "Name of the database, _system for global process" }

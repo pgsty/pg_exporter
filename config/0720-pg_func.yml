@@ -5,7 +5,7 @@ pg_func:
   desc: PostgreSQL function metrics
   query: SELECT CURRENT_CATALOG AS datname, schemaname || '.' || funcname AS funcname, sum(calls) AS calls, sum(total_time) AS total_time, sum(self_time) AS self_time FROM pg_stat_user_functions GROUP BY 2 ORDER BY 4 DESC LIMIT 128;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   metrics:
     - datname:             { usage: LABEL    ,description: "Name of belonged database" }
     - funcname:            { usage: LABEL    ,description: "Name of this function, may have multiple override" }

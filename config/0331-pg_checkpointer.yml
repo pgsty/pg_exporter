@@ -17,7 +17,7 @@ pg_checkpointer_18:
     - restartpoints_done:    { usage: COUNTER                ,description: "Number of restartpoints that have been performed" }
     - write_time:            { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in seconds" }
     - sync_time:             { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in seconds" }
-    - buffers_written:       { usage: COUNTER                ,description: "Number of buffers written during checkpoints and restartpoints" }
+    - buffers_written:       { usage: COUNTER                ,description: "Number of shared buffers written during checkpoints and restartpoints" }
     - slru_written:          { usage: COUNTER                ,description: "Number of SLRU buffers written during checkpoints and restartpoints" }
     - reset_time:            { usage: GAUGE                  ,description: "Time at which checkpointer statistics were last reset" }
 
@@ -31,9 +31,9 @@ pg_checkpointer_17:
   tags: [ cluster ]
   metrics:
     - num_timed:             { usage: COUNTER ,rename: timed ,description: "Number of scheduled checkpoints due to timeout, including completed and skipped checkpoints" }
-    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints that have been performed" }
-    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it" }
-    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints" }
+    - num_requested:         { usage: COUNTER ,rename: req   ,description: "Number of requested checkpoints, including completed and skipped checkpoints" }
+    - restartpoints_timed:   { usage: COUNTER                ,description: "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it, including completed and skipped restartpoints" }
+    - restartpoints_req:     { usage: COUNTER                ,description: "Number of requested restartpoints, including completed and skipped restartpoints" }
     - restartpoints_done:    { usage: COUNTER                ,description: "Number of restartpoints that have been performed" }
     - write_time:            { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in seconds" }
     - sync_time:             { usage: COUNTER ,scale: 1e-3   ,description: "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in seconds" }
@@ -45,7 +45,7 @@ pg_checkpointer_10:
   desc: "PostgreSQL checkpointer stat metrics for pg 9.4-16"
   query: SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time, checkpoint_sync_time, buffers_checkpoint, extract(EPOCH FROM stats_reset) AS reset_time FROM pg_stat_bgwriter;
   ttl: 10
-  min_version: 090400
+  min_version: 90400
   max_version: 170000
   tags: [ cluster ]
   metrics:

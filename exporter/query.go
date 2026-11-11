@@ -85,7 +85,7 @@ var htmlTemplate, _ = htmltmpl.New("Query").Parse(`
 <thead><tr><th>Name</th> <th>SQL</th> <th>Cache TTL</th></tr></thead>
 <tbody>
 {{ range .PredicateQueries }}
-<tr><td>{{ .Name }}</td><td><code>{{ .SQL }}</code></td><td>{{if ne .TTL 0}}{{ .TTL }}s{{else}}<i>not cached</i>{{end}}</td></tr>
+<tr><td>{{ .Name }}</td><td><code>{{ .SQL }}</code></td><td>{{if gt .TTL 0.0}}{{ .TTL }}s{{else}}<i>not cached</i>{{end}}</td></tr>
 {{ end }}
 </tbody></table>
 {{ end }}

@@ -13,7 +13,7 @@ pg_origin:
   desc: PostgreSQL replay state (approximate) for a certain origin
   query: SELECT roname, remote_lsn - '0/0' AS remote_lsn, local_lsn - '0/0' AS local_lsn FROM pg_replication_origin o LEFT JOIN pg_replication_origin_status os ON o.roident = os.local_id;
   ttl: 10
-  min_version: 090500
+  min_version: 90500
   skip: true
   tags: [ cluster ]
   metrics:

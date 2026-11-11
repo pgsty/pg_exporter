@@ -8,7 +8,7 @@ pg_index_bloat:
   query: SELECT datname, nspname || '.' || relname AS relname, size, ratio FROM pg_index_bloat ORDER BY size DESC LIMIT 64;
   ttl: 300
   timeout: 2
-  min_version: 090400
+  min_version: 90400
   skip: true
   metrics:
     - datname:             { usage: LABEL    ,description: "Database name of this index" }

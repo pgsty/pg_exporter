@@ -7,7 +7,7 @@ pg_ssl:
   query: |
     SELECT count(*) FILTER (WHERE ssl) AS enabled, count(*) FILTER ( WHERE NOT ssl) AS disabled FROM pg_stat_ssl;
   ttl: 10
-  min_version: 090500
+  min_version: 90500
   tags: [ cluster ]
   metrics:
     - enabled:            { usage: GAUGE   ,description: "Number of client connection that use ssl" }
