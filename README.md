@@ -55,10 +55,11 @@ Check [**https://demo.pigsty.io**](https://demo.pigsty.io/ui/) for live demo, wh
 Built with **Go 1.27.4**, this maintenance release hardens collector isolation, connection URL normalization, and SQL edge cases without changing public metric names, label keys, or HTTP contracts:
 
 - Preserve URI authority on hostless PostgreSQL URLs (for example `postgresql://?host=/var/run/postgresql`), redact `sslpassword` in logs, and strip conflicting `service` parameters during database discovery.
-- Isolate duplicate label sets within an individual SQL collector instead of failing the entire `/metrics` gather, validate `--namespace` at startup, and prevent invalid UTF-8 database names or conflicting build-info labels from causing scrape panics or metadata overwrites.
+- Reject duplicate scalar label sets within a collector before gathering; non-fatal failures let other collectors continue, while histogram-only queries still aggregate repeated labels. Validate `--namespace` at startup and keep invalid internal labels or user build-info overrides from causing panics or misleading metadata.
+- Make removed/replaced child-pool cleanup safe, reject non-finite `scale` / `default`, and repair predicate TTL rendering on the HTML explain page.
 - Fix `pg_table` partitioned-table `age` (`relfrozenxid = 0` no longer reports `2147483647`) and `NULL` scan sums on unindexed tables, `pg_tsdb_hypertable` identifier quoting, `pg_table_size` temp/TOAST schema filtering, `pg_activity` negative clock-skew durations, and collector HELP descriptions.
 - Inject build metadata in `Dockerfile`, add `ExecReload` to `pg_exporter.service`, and expand version-coverage tests across PostgreSQL 10–19 and PgBouncer 1.8–1.26.
-- Authoritative manuals and design records live at [**exp.pgsty.com**](https://exp.pgsty.com/docs/).
+- See the [**v1.6.1 release notes**](https://exp.pgsty.com/release/v1.6.1/) for fixes and upgrade steps. Authoritative manuals and design records live at [**exp.pgsty.com**](https://exp.pgsty.com/docs/).
 
 
 --------
