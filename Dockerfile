@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.27.3-alpine AS builder-env
+FROM golang:1.27.4-alpine AS builder-env
 
 RUN apk add --no-cache ca-certificates
 

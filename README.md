@@ -199,7 +199,7 @@ curl localhost:9630/read
 
 ## Build
 
-Use **Go 1.27.3** or later, as declared in [`go.mod`](go.mod).
+Use **Go 1.27.4** or later, as declared in [`go.mod`](go.mod).
 
 To build a static stand-alone binary for docker scratch
 
